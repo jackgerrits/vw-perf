@@ -55,11 +55,14 @@ def run_harness(vw_bin, num_runs, step_generator = get_steps):
       })
   return benchmarks
 
-def run(bins, clone_dir, num_runs):
+def run(bins, clone_dir, num_runs, skip_existing):
   if bins is not None:
     bins = bins
   elif clone_dir is not None:
-    bins = find.find_all("vw", clone_dir)
+    bin_name = "vw"
+    print("Searching for {} in {}".format(bin_name, clone_dir))
+    bins = find.find_all(bin_name, clone_dir)
+    print("found {} binaries".format(len(bins)))
   else:
     print("Error: etiher bins or clone_dir must be supplied.")
     exit(1)
@@ -82,9 +85,18 @@ def run(bins, clone_dir, num_runs):
     try:
       if ref not in perf_info:
         perf_info[ref] = {}
+      else:
+        print("Skipping {} found - skipping")
+        continue
+
+      # Save commit info
       perf_info[ref]["commit"] = ref
       perf_info[ref]["date"] = clone.get_commit_date(ref)
-      benchmarks = run_harness(os.path.realpath(vw_bin), num_runs, get_quick_steps)
+
+      # Run harness
+      benchmarks = run_harness(os.path.realpath(vw_bin), num_runs, get_steps)
+
+      # Record benchmark info
       if "benchmarks" not in perf_info[ref]:
         perf_info[ref]["benchmarks"] = {}
       for bnch in benchmarks:
@@ -96,6 +108,11 @@ def run(bins, clone_dir, num_runs):
           perf_info[ref]["benchmarks"][bnch["name"]]["runs"] = []
         perf_info[ref]["benchmarks"][bnch["name"]]["runs"].extend(bnch["runs"])
         perf_info[ref]["benchmarks"][bnch["name"]]["average"] = sum(perf_info[ref]["benchmarks"][bnch["name"]]["runs"]) / len(perf_info[ref]["benchmarks"][bnch["name"]]["runs"])
+
+      # Save as we go in case of quit/crash
+      with open('data.json', 'w') as f:
+        json.dump(perf_info, f)
+
     except util.CommandFailed as e:
       perf_info.pop(ref, None)
       print("Skipping {}, failed with: {}".format(ref, e))
@@ -125,6 +142,7 @@ if __name__ == '__main__':
   run_parser.add_argument("--bins", help="Paths to VW binaries to test", type=str, nargs='+')
   run_parser.add_argument("--clone_dir", help="Path to search for vw binaries", type=str)
   run_parser.add_argument("--runs", help="How many runs to average over", default=1, type=int)
+  run_parser.add_argument("--skip_existing", help="Skip over commits already done", default=True, type=bool)
 
   clone_parser.add_argument('--commits', type=str, nargs='+',
                     help='List of all commits to checkout')
@@ -145,6 +163,6 @@ if __name__ == '__main__':
   elif args.command == "prepare":
     prepare.run()
   elif args.command == "run":
-    run(args.bins, args.clone_dir, args.runs)
+    run(args.bins, args.clone_dir, args.runs, args.skip_existing)
   elif args.command == "find":
     find.run(args.bin_name, args.path)
