@@ -43,7 +43,7 @@
             let i = 0;
             for (let benchmark of benchmarks) {
                 let plot_data = Object.keys(data).map((item) => { return { "x": Date.parse(data[item].date), "y": data[item].benchmarks[benchmark].average, commit: data[item].commit } });
-                plot_data.sort((a, b) => a.x > b.x)
+                plot_data.sort((a, b) => a.x - b.x)
                 id = 'myChart' + i++
 
                 let min = Math.min(...plot_data.map(item => item.x))
