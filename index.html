@@ -192,15 +192,9 @@
 
                 slider.noUiSlider.on('update', function (values, handle) {
                     dateValues[handle].innerHTML = moment(+values[handle]).format("YY/MM/DD HH:mm:ss");
-                    let new_data;
-                    if (handle == 0) {
-                        new_data = plot_data.filter(item => item.x >= +values[handle]);
-                    }
-
-                    if (handle == 1) {
-                        new_data = plot_data.filter(item => item.x <= +values[handle]);
-                    }
-
+                    const min = +slider.noUiSlider.get()[0];
+                    const max = +slider.noUiSlider.get()[1];
+                    const new_data = plot_data.filter(item => item.x >= min && item.x <= max );
                     myLineChart.data.datasets.forEach((dataset) => {
                         dataset.data = new_data;
                     });
