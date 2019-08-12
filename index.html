@@ -38,7 +38,7 @@
     <script>
         window.onload = async function () {
 
-            let data = await fetch(`/data.json`).then(response => response.json());
+            let data = await fetch(`./data.json`).then(response => response.json());
 
             benchmarks = Object.keys(data[Object.keys(data)[0]].benchmarks);
 
@@ -51,7 +51,6 @@
 
                 const min = Math.min(...plot_data.map(item => item.x))
                 const max = Math.max(...plot_data.map(item => item.x))
-                console.log(plot_data.map(item => item.x))
 
                 let canv = document.createElement('canvas');
                 canv.id = id;
