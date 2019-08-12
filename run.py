@@ -15,8 +15,8 @@ def make_command_line_test(vw_bin, command_line):
     util.check_result_throw(subprocess.run((vw_bin + " " + command_line).split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
   return command_line_test, command_line
 
+# Add functions here that will run as part of the harness. They should return the time in seconds it took to run it.
 def get_steps(vw_bin):
-  # Add functions here that will run as part of the harness. They should return the time in seconds it took to run it.
   return [
     make_command_line_test(vw_bin, "--no_stdin"),
     make_command_line_test(vw_bin, "--no_stdin -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t"),
@@ -27,80 +27,48 @@ def get_steps(vw_bin):
     make_command_line_test(vw_bin, "--dsjson -d ./data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB --epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
   ]
 
+# Add functions here that will run as part of the harness. They should return the time in seconds it took to run it.
 def get_quick_steps(vw_bin):
-  # Add functions here that will run as part of the harness. They should return the time in seconds it took to run it.
   return [
     make_command_line_test(vw_bin, "--no_stdin"),
     make_command_line_test(vw_bin, "--no_stdin -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t"),
   ]
 
-class Benchmark():
-  def __init__(self, vw_bin, name, runs, runtime_in_sec, commit = None, date = None):
-    self.vw_bin = vw_bin
-    self.name = name
-    self.runs = runs
-    self.runtime_in_sec = runtime_in_sec
-    self.commit = commit
-    self.date = date
-
-  def avg(self):
-    return self.runtime_in_sec / self.runs
-
-def run_harness(vw_bin, runs, step_generator = get_steps):
+def run_harness(vw_bin, num_runs, step_generator = get_steps):
   benchmarks = []
   steps = step_generator(vw_bin)
   for step, name in steps:
-    run_time_in_sec = 0
     print("\trunning bench: '{}'".format(name))
 
-
+    runs = []
     # Average over number of runs
-    for _ in range(runs):
+    for _ in range(num_runs):
       start_time = time.perf_counter()
       # Run the step
       step()
       end_time = time.perf_counter()
-      run_time_in_sec += end_time - start_time
-    benchmarks.append(Benchmark(vw_bin, name, runs, run_time_in_sec))
+      runs.append(end_time - start_time)
+    benchmarks.append({
+      "vw_bin" : vw_bin,
+      "name" : name,
+      "runs" : runs
+      })
   return benchmarks
 
-def run_harness_with_commit_info(vw_bin, runs, step_generator = get_steps):
-  benchmarks = []
-  steps = step_generator(vw_bin)
-  try:
-    ref = find.extract_ref(vw_bin)
-    date = clone.get_commit_date(ref)
-  except Exception as e:
-    ref = "unknown"
-    date = "unknown"
-
-  for step, name in steps:
-    run_time_in_sec = 0
-    try:
-      # Average over number of runs
-      for _ in range(runs):
-        start_time = time.perf_counter()
-        # Run the step
-        step()
-        end_time = time.perf_counter()
-        run_time_in_sec += end_time - start_time
-      benchmarks.append(Benchmark(vw_bin, name, runs, run_time_in_sec, ref, date))
-    except Exception as e:
-      benchmarks.append(Benchmark(vw_bin, name, -1, -1, ref, date))
-  return benchmarks
-
-def run(bins, clone_dir, runs):
+def run(bins, clone_dir, num_runs):
   if bins is not None:
     bins = bins
   elif clone_dir is not None:
     bins = find.find_all("vw", clone_dir)
   else:
     print("Error: etiher bins or clone_dir must be supplied.")
-    parser.print_help()
     exit(1)
 
-  with open('data.json') as f:
-    perf_info = json.load(f)
+  if os.path.exists('data.json'):
+    with open('data.json') as f:
+      perf_info = json.load(f)
+  else:
+    perf_info = {}
 
   for vw_bin in bins:
     try:
@@ -115,20 +83,19 @@ def run(bins, clone_dir, runs):
       if ref not in perf_info:
         perf_info[ref] = {}
       perf_info[ref]["commit"] = ref
-      perf_info[ref]["commit"] = ref
       perf_info[ref]["date"] = clone.get_commit_date(ref)
-      benchmarks = run_harness(os.path.realpath(vw_bin), runs, get_steps)
+      benchmarks = run_harness(os.path.realpath(vw_bin), num_runs, get_quick_steps)
       if "benchmarks" not in perf_info[ref]:
         perf_info[ref]["benchmarks"] = {}
       for bnch in benchmarks:
-        if bnch.name not in perf_info[ref]["benchmarks"]:
-          perf_info[ref]["benchmarks"][bnch.name] = {}
-        perf_info[ref]["benchmarks"][bnch.name]["bin"] = bnch.vw_bin
-        perf_info[ref]["benchmarks"][bnch.name]["name"] = bnch.name
-        perf_info[ref]["benchmarks"][bnch.name]["runs"] = bnch.runs
-        perf_info[ref]["benchmarks"][bnch.name]["runtime_in_sec"] = bnch.runtime_in_sec
-        perf_info[ref]["benchmarks"][bnch.name]["average"] = bnch.avg()
-        # print("{},{},{},{},{}".format(bnch.vw_bin, bnch.name, bnch.runs, bnch.runtime_in_sec, bnch.avg()))
+        if bnch["name"] not in perf_info[ref]["benchmarks"]:
+          perf_info[ref]["benchmarks"][bnch["name"]] = {}
+        perf_info[ref]["benchmarks"][bnch["name"]]["bin"] = bnch["vw_bin"]
+        perf_info[ref]["benchmarks"][bnch["name"]]["name"] = bnch["name"]
+        if "runs" not in perf_info[ref]["benchmarks"][bnch["name"]]:
+          perf_info[ref]["benchmarks"][bnch["name"]]["runs"] = []
+        perf_info[ref]["benchmarks"][bnch["name"]]["runs"].extend(bnch["runs"])
+        perf_info[ref]["benchmarks"][bnch["name"]]["average"] = sum(perf_info[ref]["benchmarks"][bnch["name"]]["runs"]) / len(perf_info[ref]["benchmarks"][bnch["name"]]["runs"])
     except util.CommandFailed as e:
       perf_info.pop(ref, None)
       print("Skipping {}, failed with: {}".format(ref, e))
@@ -159,10 +126,12 @@ if __name__ == '__main__':
   run_parser.add_argument("--clone_dir", help="Path to search for vw binaries", type=str)
   run_parser.add_argument("--runs", help="How many runs to average over", default=1, type=int)
 
-  clone_parser.add_argument('tags_or_shas', type=str, nargs='+',
-                    help='List of all tags or shas to checkout')
+  clone_parser.add_argument('--commits', type=str, nargs='+',
+                    help='List of all commits to checkout')
+  clone_parser.add_argument('--num', type=int,
+                    help='Number of master commits into past to checkout')
 
-  find_parser.add_argument("bin_name", help="Binary name to find")
+  find_parser.add_argument("--name", help="Binary name to find")
   find_parser.add_argument("--path", help="Path to find in", default="./clones/")
 
   args = parser.parse_args()
@@ -172,10 +141,10 @@ if __name__ == '__main__':
     parser.print_help()
     exit(1)
   elif args.command == "clone":
-    clone.run(args.tags_or_shas)
+    clone.run(args.commits, args.num)
   elif args.command == "prepare":
     prepare.run()
   elif args.command == "run":
     run(args.bins, args.clone_dir, args.runs)
-  elif args.command == "run":
+  elif args.command == "find":
     find.run(args.bin_name, args.path)
