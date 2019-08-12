@@ -49,8 +49,7 @@
                 let min = Math.min(...plot_data.map(item => item.x))
                 let max = Math.max(...plot_data.map(item => item.x))
                 min = moment(min).startOf("day").valueOf();
-                max = moment(min).endOf("day").valueOf();
-
+                max = moment(max).endOf("day").valueOf();
 
                 let canv = document.createElement('canvas');
                 canv.id = id;
