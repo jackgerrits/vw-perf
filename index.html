@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Vowpal Wabbit Performance</title>
+    <style>
+        #chartjs-tooltip {
+            background-color: white;
+            padding: 20px;
+        }
+
+        .chartContainer {
+            margin-bottom: 50px;
+        }
+    </style>
+
+    <script src="data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.0.2/nouislider.min.js"
+        integrity="sha256-VG+4f1Hm2q4e+DTEOaiZKlWjJm5W4yqnXNvKkWBYA20=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"
+        integrity="sha256-4iQZ6BVL4qNKlQ27TExEhBN1HFPvAvAMbFavKKosSWQ=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"
+        integrity="sha256-Uv9BNBucvCPipKQ2NS9wYpJmi8DTOEfTA/nH2aoJALw=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-trendline@0.1.2/src/chartjs-plugin-trendline.js"
+        integrity="sha256-qK/qfey2rWYrbn7LxcnXUal4mpUdQvP14IoS1Iaf/l4=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.0.2/nouislider.min.css"
+        integrity="sha256-6pa9Ln4B/FyHlxOYaXuwpET9xH0e21iX0SPLg9P5Ro0=" crossorigin="anonymous" />
+</head>
+
+<body>
+    <div class="container" id="chartContainer" style="width:75%; height: 50%;">
+        <h1>Vowpal Wabbit Performance</h1>
+    </div>
+
+    <script>
+        window.onload = async function () {
+
+            let data = await fetch(`/data.json`).then(response => response.json());
+
+            benchmarks = Object.keys(data[Object.keys(data)[0]].benchmarks);
+
+            let i = 0;
+            charts = []
+            for (let benchmark of benchmarks) {
+                let plot_data = Object.keys(data).map((item) => { return { "x": Date.parse(data[item].date), "y": data[item].benchmarks[benchmark].average, commit: data[item].commit } });
+                plot_data.sort((a, b) => a.x > b.x)
+                id = 'myChart' + i++
+
+                const min = Math.min(...plot_data.map(item => item.x))
+                const max = Math.max(...plot_data.map(item => item.x))
+                console.log(plot_data.map(item => item.x))
+
+                let canv = document.createElement('canvas');
+                canv.id = id;
+
+                let container = document.createElement('div');
+                container.className = "chartContainer"
+
+                let header = document.createElement('h3');
+                let text = document.createTextNode(benchmark)
+                header.appendChild(text);
+                container.appendChild(header)
+                container.appendChild(canv);
+
+                document.getElementById('chartContainer').appendChild(container);
+                let ctx = document.getElementById(id);
+
+                let sliderdiv = document.createElement('div');
+                sliderdiv.id = "slider" + id;
+                container.appendChild(sliderdiv);
+
+
+                let leftdate = document.createElement('div');
+                leftdate.id = "leftslider" + id;
+                container.appendChild(leftdate);
+
+
+                let rightdate = document.createElement('div');
+                rightdate.id = "rightslider" + id;
+                container.appendChild(rightdate);
+
+
+                let slider = document.getElementById("slider" + id);
+
+                noUiSlider.create(slider, {
+                    start: [20, 80],
+                    connect: true,
+                    range: {
+                        'min': min,
+                        'max': max
+                    },
+                    start: [min, max],
+                });
+
+                let dateValues = [
+                    leftdate,
+                    rightdate
+                ];
+
+                let myLineChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: benchmark,
+                            fill: false,
+                            data: plot_data,
+                            trendlineLinear: {
+                                style: "rgb(43 ,66 ,255, 0.3)",
+                                lineStyle: "solid",
+                                width: 2
+                            }
+                        }]
+
+                    },
+                    options: {
+                        legend: {
+                            display: false
+                        },
+                        elements: {
+                            line: {
+                                tension: 0
+                            }
+                        },
+                        maintainAspectRatio: false,
+                        scales: {
+                            xAxes: [{
+                                type: 'time',
+                                time: {
+                                    unit: 'month'
+                                }
+                            }]
+                        },
+                        tooltips: {
+                            enabled: false,
+                            mode: 'label',
+                            callbacks: {
+                                label: function (tooltipItem, data) {
+                                    let value = data.datasets[tooltipItem.datasetIndex].data[tooltipItem.index];
+                                    return [value.x, value.y, value.commit];
+                                }
+                            },
+                            custom: function (tooltipModel) {
+                                // Tooltip Element
+                                let tooltipEl = document.getElementById('chartjs-tooltip');
+
+                                // Create element on first render
+                                if (!tooltipEl) {
+                                    tooltipEl = document.createElement('div');
+                                    tooltipEl.id = 'chartjs-tooltip';
+                                    document.body.prepend(tooltipEl);
+                                }
+
+
+                                // Set Text
+                                if (tooltipModel.body) {
+                                    let item = tooltipModel.body[0]
+                                    let time = item.lines[0];
+                                    let value = item.lines[1];
+                                    let commit = item.lines[2];
+
+                                    tooltipEl.innerHTML = `<a href="https://github.com/VowpalWabbit/vowpal_wabbit/commit/${commit}" target="_blank">${commit}</a>
+                                        <br>${moment(time).format()}<br> ${value}<br>`;
+
+                                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`)
+                                        .then(response => response.json())
+                                        .then(function (json) {
+                                            tooltipEl.innerHTML += json.commit.author.name + "<br>";
+                                            tooltipEl.innerHTML += json.commit.message.split('\n')[0];
+                                        });
+                                }
+
+                                // `this` will be the overall tooltip
+                                let position = this._chart.canvas.getBoundingClientRect();
+
+                                // Display, position, and set styles for font
+                                tooltipEl.style.opacity = 1;
+                                tooltipEl.style.position = 'absolute';
+                                tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
+                                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+                                tooltipEl.style.fontFamily = tooltipModel._bodyFontFamily;
+                                tooltipEl.style.fontSize = tooltipModel.bodyFontSize + 'px';
+                                tooltipEl.style.fontStyle = tooltipModel._bodyFontStyle;
+                                tooltipEl.style.padding = tooltipModel.yPadding + 'px ' + tooltipModel.xPadding + 'px';
+                            }
+                        }
+                    }
+                });
+                charts.push(myLineChart)
+
+                slider.noUiSlider.on('update', function (values, handle) {
+
+                    dateValues[handle].innerHTML = moment(+values[handle]).format();
+                    let new_data;
+                    if (handle == 0) {
+                        new_data = plot_data.filter(item => item.x >= +values[handle]);
+                    }
+
+                    if (handle == 1) {
+                        new_data = plot_data.filter(item => item.x <= +values[handle]);
+
+                    }
+
+                    myLineChart.data.datasets.forEach((dataset) => {
+                        dataset.data = new_data;
+                    });
+                    myLineChart.update();
+                });
+            }
+        };
+    </script>
+</body>
+
+</html>

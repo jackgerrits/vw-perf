@@ -19,5 +19,6 @@ Below is a list of current benchmarks and a brief explanation of what they test.
   - Tests performance of JSON parsing and CB stack but in test only mode
 
 ## Usage
-1. Run `prepare.py` to download required datasets
-2. Run `run.py <vw_binary> [--runs <runs>]` to run benchmarks against a given VW binary with an optional number of runs to average over
+1. Run `python3 run.py prepare` to download required datasets
+2. Run `run.py clone <sha>` to clone and build the given sha
+2. Run `run.py --clone_dir ./clones` to run benchmarks against the downloaded sha. This will output results into `data.json`
