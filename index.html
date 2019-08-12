@@ -14,6 +14,7 @@
         .chartContainer {
             margin-bottom: 50px;
         }
+
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.0.2/nouislider.min.js"
@@ -37,20 +38,19 @@
 
     <script>
         window.onload = async function () {
-
             let data = await fetch(`./data.json`).then(response => response.json());
-
             benchmarks = Object.keys(data[Object.keys(data)[0]].benchmarks);
-
             let i = 0;
-            charts = []
             for (let benchmark of benchmarks) {
                 let plot_data = Object.keys(data).map((item) => { return { "x": Date.parse(data[item].date), "y": data[item].benchmarks[benchmark].average, commit: data[item].commit } });
                 plot_data.sort((a, b) => a.x > b.x)
                 id = 'myChart' + i++
 
-                const min = Math.min(...plot_data.map(item => item.x))
-                const max = Math.max(...plot_data.map(item => item.x))
+                let min = Math.min(...plot_data.map(item => item.x))
+                let max = Math.max(...plot_data.map(item => item.x))
+                min = moment(min).startOf("day").valueOf();
+                max = moment(min).endOf("day").valueOf();
+
 
                 let canv = document.createElement('canvas');
                 canv.id = id;
@@ -71,16 +71,13 @@
                 sliderdiv.id = "slider" + id;
                 container.appendChild(sliderdiv);
 
-
                 let leftdate = document.createElement('div');
                 leftdate.id = "leftslider" + id;
                 container.appendChild(leftdate);
 
-
                 let rightdate = document.createElement('div');
                 rightdate.id = "rightslider" + id;
                 container.appendChild(rightdate);
-
 
                 let slider = document.getElementById("slider" + id);
 
@@ -130,6 +127,12 @@
                                 time: {
                                     unit: 'month'
                                 }
+                            }],
+                            yAxes: [{
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: 'Seconds'
+                                }
                             }]
                         },
                         tooltips: {
@@ -161,7 +164,7 @@
                                     let commit = item.lines[2];
 
                                     tooltipEl.innerHTML = `<a href="https://github.com/VowpalWabbit/vowpal_wabbit/commit/${commit}" target="_blank">${commit}</a>
-                                        <br>${moment(time).format()}<br> ${value}<br>`;
+                                        <br>${moment(time).format("YY/MM/DD HH:mm:ss")}<br> ${value}<br>`;
 
                                     fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`)
                                         .then(response => response.json())
@@ -187,11 +190,9 @@
                         }
                     }
                 });
-                charts.push(myLineChart)
 
                 slider.noUiSlider.on('update', function (values, handle) {
-
-                    dateValues[handle].innerHTML = moment(+values[handle]).format();
+                    dateValues[handle].innerHTML = moment(+values[handle]).format("YY/MM/DD HH:mm:ss");
                     let new_data;
                     if (handle == 0) {
                         new_data = plot_data.filter(item => item.x >= +values[handle]);
@@ -199,7 +200,6 @@
 
                     if (handle == 1) {
                         new_data = plot_data.filter(item => item.x <= +values[handle]);
-
                     }
 
                     myLineChart.data.datasets.forEach((dataset) => {
