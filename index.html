@@ -9,6 +9,7 @@
         #chartjs-tooltip {
             background-color: white;
             padding: 20px;
+            z-index:100;
         }
 
         .chartContainer {
@@ -153,7 +154,6 @@
                                     tooltipEl.id = 'chartjs-tooltip';
                                     document.body.prepend(tooltipEl);
                                 }
-
 
                                 // Set Text
                                 if (tooltipModel.body) {

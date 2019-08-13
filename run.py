@@ -19,19 +19,11 @@ def make_command_line_test(vw_bin, command_line):
 def get_steps(vw_bin):
   return [
     make_command_line_test(vw_bin, "--no_stdin"),
-    make_command_line_test(vw_bin, "--no_stdin -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t"),
     make_command_line_test(vw_bin, "-d ./data/rcv1/rcv1/rcv1.train.vw.gz -f r_temp"),
     # This specific test must run after the previous test as it uses the produced model.
     make_command_line_test(vw_bin, "-d ./data/rcv1/rcv1/rcv1.test.vw.gz -t -i r_temp"),
     make_command_line_test(vw_bin, "-t --dsjson -d ./data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB --epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
     make_command_line_test(vw_bin, "--dsjson -d ./data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB --epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
-  ]
-
-# Add functions here that will run as part of the harness. They should return the time in seconds it took to run it.
-def get_quick_steps(vw_bin):
-  return [
-    make_command_line_test(vw_bin, "--no_stdin"),
-    make_command_line_test(vw_bin, "--no_stdin -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -q AB -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t -t"),
   ]
 
 def run_harness(vw_bin, num_runs, step_generator = get_steps):
