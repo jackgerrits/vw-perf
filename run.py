@@ -47,16 +47,24 @@ def run_harness(vw_bin, num_runs, step_generator = get_steps):
       })
   return benchmarks
 
-def run(bins, clone_dir, num_runs, skip_existing):
+def run(bins, clone_dir, num_runs, num, skip_existing):
+  bin_name = "vw"
   if bins is not None:
     bins = bins
   elif clone_dir is not None:
-    bin_name = "vw"
     print("Searching for {} in {}".format(bin_name, clone_dir))
     bins = find.find_all(bin_name, clone_dir)
     print("found {} binaries".format(len(bins)))
+  elif num is not None:
+    commits_to_process = clone.get_commits("master", num)
+    bins = []
+    for commit in commits_to_process:
+      commit_path = os.path.realpath(os.path.join("./clones/", commit))
+      if not os.path.exists(commit_path):
+        print("{} does not exist. Please checkout and build using `python3 run.py clone --commits {}`".format(commit, commit))
+      bins.extend(find.find_all(bin_name, commit_path))
   else:
-    print("Error: etiher bins or clone_dir must be supplied.")
+    print("Error: etiher bins, clone_dir or num must be supplied.")
     exit(1)
 
   if os.path.exists('data.json'):
@@ -117,11 +125,13 @@ if __name__ == '__main__':
     "run.py",
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description=textwrap.dedent('''\
-      commands:
+      subcommands:
         run\t\tMain perf testing harness
         prepare\tDownloads and extracts required datasets for perf harness
         clone\t\tUtility to clone and build commits in expected directory structure
         find\t\tUsed to find binaries in a directory (not important)
+
+      Use `<subcommand> -h` to see usage of a subcommand
       ''')
   )
   subparsers = parser.add_subparsers(dest='command')
@@ -131,15 +141,18 @@ if __name__ == '__main__':
   prepare_parser = subparsers.add_parser("prepare")
   find_parser = subparsers.add_parser("find")
 
-  run_parser.add_argument("--bins", help="Paths to VW binaries to test", type=str, nargs='+')
-  run_parser.add_argument("--clone_dir", help="Path to search for vw binaries", type=str)
+  run_group = run_parser.add_mutually_exclusive_group(required=True)
+  run_group.add_argument("--bins", help="Paths to VW binaries to test", type=str, nargs='+', default=[])
+  run_group.add_argument("--clone_dir", help="Path to search for vw binaries", type=str, default="./clones")
+  run_group.add_argument("--num", help="Number of commits back in history to test", type=int, default=1)
   run_parser.add_argument("--runs", help="How many runs to average over", default=1, type=int)
   run_parser.add_argument("--skip_existing", help="Skip over commits already done", default=True, type=bool)
 
-  clone_parser.add_argument('--commits', type=str, nargs='+',
-                    help='List of all commits to checkout')
-  clone_parser.add_argument('--num', type=int,
-                    help='Number of master commits into past to checkout')
+  clone_group = clone_parser.add_mutually_exclusive_group(required=True)
+  clone_group.add_argument('--commits', type=str, nargs='+',
+                    help='List of all commits to checkout', default=[])
+  clone_group.add_argument('--num', type=int,
+                    help='Number of master commits into past to checkout', default=1)
 
   find_parser.add_argument("--name", help="Binary name to find")
   find_parser.add_argument("--path", help="Path to find in", default="./clones/")
@@ -155,6 +168,6 @@ if __name__ == '__main__':
   elif args.command == "prepare":
     prepare.run()
   elif args.command == "run":
-    run(args.bins, args.clone_dir, args.runs, args.skip_existing)
+    run(args.bins, args.clone_dir, args.runs, args.num, args.skip_existing)
   elif args.command == "find":
     find.run(args.bin_name, args.path)

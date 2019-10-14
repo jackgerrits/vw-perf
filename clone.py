@@ -32,11 +32,16 @@ def get_commits(branch, num = 10):
     util.check_result_throw(subprocess.run(("git clone https://github.com/VowpalWabbit/vowpal_wabbit/ {}".format(repo_info)).split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
 
   os.chdir(repo_info)
-  result = subprocess.run(("git log {} --pretty=format:\"%h\" --no-patch -{}".format(branch, num)).split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  print("Updating info repo...")
+  result2 = subprocess.run(("git checkout {}".format(branch)).split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  result1 = subprocess.run(("git pull origin {}".format(branch)).split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  result3 = subprocess.run(("git log {} --pretty=format:\"%h\" --no-patch -{}".format(branch, num)).split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
   os.chdir(script_path)
-  util.check_result_throw(result)
+  util.check_result_throw(result1)
+  util.check_result_throw(result2)
+  util.check_result_throw(result3)
 
-  return  [x.strip("'\"") for x in util.try_decode(result.stdout).splitlines()]
+  return  [x.strip("'\"") for x in util.try_decode(result3.stdout).splitlines()]
 
 def clone_and_build(commit, clone_dir = "./clones/"):
   commit_path = os.path.join(clone_dir, commit)
