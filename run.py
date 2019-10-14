@@ -142,17 +142,17 @@ if __name__ == '__main__':
   find_parser = subparsers.add_parser("find")
 
   run_group = run_parser.add_mutually_exclusive_group(required=True)
-  run_group.add_argument("--bins", help="Paths to VW binaries to test", type=str, nargs='+', default=[])
-  run_group.add_argument("--clone_dir", help="Path to search for vw binaries", type=str, default="./clones")
-  run_group.add_argument("--num", help="Number of commits back in history to test", type=int, default=1)
+  run_group.add_argument("--bins", help="Paths to VW binaries to test", type=str, nargs='+', default=None)
+  run_group.add_argument("--clone_dir", help="Path to search for vw binaries", type=str, default=None)
+  run_group.add_argument("--num", help="Number of commits back in history to test", type=int, default=None)
   run_parser.add_argument("--runs", help="How many runs to average over", default=1, type=int)
   run_parser.add_argument("--skip_existing", help="Skip over commits already done", default=True, type=bool)
 
   clone_group = clone_parser.add_mutually_exclusive_group(required=True)
   clone_group.add_argument('--commits', type=str, nargs='+',
-                    help='List of all commits to checkout', default=[])
+                    help='List of all commits to checkout', default=None)
   clone_group.add_argument('--num', type=int,
-                    help='Number of master commits into past to checkout', default=1)
+                    help='Number of master commits into past to checkout', default=None)
 
   find_parser.add_argument("--name", help="Binary name to find")
   find_parser.add_argument("--path", help="Path to find in", default="./clones/")
