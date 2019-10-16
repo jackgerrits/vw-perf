@@ -43,7 +43,7 @@
             benchmarks = Object.keys(data[Object.keys(data)[0]].benchmarks);
             let i = 0;
             for (let benchmark of benchmarks) {
-                let plot_data = Object.keys(data).map((item) => { return { "x": Date.parse(data[item].date), "y": data[item].benchmarks[benchmark].average, commit: data[item].commit } });
+                let plot_data = Object.keys(data).map((item) => { return { "x": Date.parse(data[item].date), "y": data[item].benchmarks[benchmark].average, commit: data[item].commit, numRuns: data[item].benchmarks[benchmark].runs.length } });
                 plot_data.sort((a, b) => a.x - b.x)
                 id = 'myChart' + i++
 
@@ -141,7 +141,7 @@
                             callbacks: {
                                 label: function (tooltipItem, data) {
                                     let value = data.datasets[tooltipItem.datasetIndex].data[tooltipItem.index];
-                                    return [value.x, value.y, value.commit];
+                                    return [value.x, value.y, value.commit, value.numRuns];
                                 }
                             },
                             custom: function (tooltipModel) {
@@ -161,15 +161,20 @@
                                     let time = item.lines[0];
                                     let value = item.lines[1];
                                     let commit = item.lines[2];
+                                    let numRuns = item.lines[3];
 
                                     tooltipEl.innerHTML = `<a href="https://github.com/VowpalWabbit/vowpal_wabbit/commit/${commit}" target="_blank">${commit}</a>
-                                        <br>${moment(time).format("YY/MM/DD HH:mm:ss")}<br> ${value}<br>`;
+                                        <br>${moment(time).format("YY/MM/DD HH:mm:ss")}<br><b>Runs:</b>${numRuns}<br><b>Avg runtime:</b> ${value}<br>`;
 
-                                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`)
+                                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`
+                                    // If you hit rate limiting you can add an access token here. Generate one at: https://github.com/settings/tokens
+                                    //, {"headers":{'Authorization': 'token ###'}}
+                                    )
                                         .then(response => response.json())
                                         .then(function (json) {
-                                            tooltipEl.innerHTML += json.commit.author.name + "<br>";
-                                            tooltipEl.innerHTML += json.commit.message.split('\n')[0];
+                                            console.log(json)
+                                            tooltipEl.innerHTML += "<b>Author:</b> " + json.commit.author.name + "<br>";
+                                            tooltipEl.innerHTML += "<b>Title:</b> " + json.commit.message.split('\n')[0];
                                         });
                                 }
 
