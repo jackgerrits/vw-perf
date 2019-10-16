@@ -8,6 +8,7 @@ import clone
 import json
 import prepare
 import find
+import data
 import textwrap
 
 def make_command_line_test(vw_bin, command_line):
@@ -140,6 +141,7 @@ if __name__ == '__main__':
   clone_parser = subparsers.add_parser("clone")
   prepare_parser = subparsers.add_parser("prepare")
   find_parser = subparsers.add_parser("find")
+  data_parser = subparsers.add_parser("merge")
 
   run_group = run_parser.add_mutually_exclusive_group(required=True)
   run_group.add_argument("--bins", help="Paths to VW binaries to test", type=str, nargs='+', default=None)
@@ -157,6 +159,9 @@ if __name__ == '__main__':
   find_parser.add_argument("--name", help="Binary name to find")
   find_parser.add_argument("--path", help="Path to find in", default="./clones/")
 
+  data_parser.add_argument("--files", help="Data files to merge", type=str, nargs='+', default=[], required=True)
+  data_parser.add_argument("--merged_name", help="Name of merged file", type=str, default="merged.json")
+
   args = parser.parse_args()
 
   # Check if a command was supplied
@@ -171,3 +176,5 @@ if __name__ == '__main__':
     run(args.bins, args.clone_dir, args.runs, args.num, args.skip_existing)
   elif args.command == "find":
     find.run(args.bin_name, args.path)
+  elif args.command == "merge":
+    data.merge(args.files, args.merged_name)
