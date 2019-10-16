@@ -10,6 +10,7 @@
             background-color: white;
             padding: 20px;
             z-index:100;
+            filter: drop-shadow(0px 0px 5px);
         }
 
         .chartContainer {
@@ -165,16 +166,23 @@
 
                                     tooltipEl.innerHTML = `<a href="https://github.com/VowpalWabbit/vowpal_wabbit/commit/${commit}" target="_blank">${commit}</a>
                                         <br>${moment(time).format("YY/MM/DD HH:mm:ss")}<br><b>Runs:</b>${numRuns}<br><b>Avg runtime:</b> ${value}<br>`;
+                                    // If you hit rate limiting you can add an access token by setting `window.github_token`. Generate one at: https://github.com/settings/tokens
+                                    let options = undefined;
+                                    if(window.githubToken !== undefined)
+                                    {
+                                        options = {"headers":{'Authorization': `token ${window.githubToken}`}};
+                                    }
 
-                                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`
-                                    // If you hit rate limiting you can add an access token here. Generate one at: https://github.com/settings/tokens
-                                    //, {"headers":{'Authorization': 'token ###'}}
-                                    )
+                                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`, options)
                                         .then(response => response.json())
                                         .then(function (json) {
-                                            console.log(json)
-                                            tooltipEl.innerHTML += "<b>Author:</b> " + json.commit.author.name + "<br>";
-                                            tooltipEl.innerHTML += "<b>Title:</b> " + json.commit.message.split('\n')[0];
+                                            if (json.commit === undefined) {
+                                                console.error("You've hit rate limiting for the Github API. You can set an access token with 'window.github_token', and that token will be used to access the API with much higher limits.")
+                                            }
+                                            else {
+                                                tooltipEl.innerHTML += "<b>Author:</b> " + json.commit.author.name + "<br>";
+                                                tooltipEl.innerHTML += "<b>Title:</b> " + json.commit.message.split('\n')[0];
+                                            }
                                         });
                                 }
 
