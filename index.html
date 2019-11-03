@@ -134,7 +134,7 @@
                 // Add Y axis
                 let y = d3.scaleLinear()
                     // *1.1 to create some padding.
-                    .domain([0, d3.max(flat_data, d => +d.y)])
+                    .domain([0, d3.max(flat_data, d => +d.y) * 1.1])
                     .range([height, 0]);
                 let yAxis = svg.append("g")
                     .call(d3.axisLeft(y));
@@ -168,9 +168,9 @@
                 function draw_marker(label, id, date) {
                     line.append("line")
                         .attr("class", "marker" + id)
-                        .attr("x1", x(date))  //<<== change your code here
+                        .attr("x1", x(date))
                         .attr("y1", 0)
-                        .attr("x2", x(date))  //<<== and here
+                        .attr("x2", x(date))
                         .attr("y2", height)
                         .style("stroke-width", 2)
                         .style("stroke", "gray")
@@ -188,14 +188,14 @@
                     line
                         .select('.marker' + id).transition()
                         .duration(1000)
-                        .attr("x1", x(date))  //<<== change your code here
-                        .attr("x2", x(date))  //<<== and here
+                        .attr("x1", x(date))
+                        .attr("x2", x(date))
 
                     line
                         .select('.marker_title' + id).transition()
                         .duration(1000)
-                        .attr("x", x(date))  //<<== change your code here
-                        .attr("x2", x(date))  //<<== and here
+                        .attr("x", x(date))
+                        .attr("x2", x(date))
                 }
 
                 let updateChart = () => {
@@ -207,14 +207,22 @@
                     if (!extent) {
                         if (!idleTimeout) return idleTimeout = setTimeout(idled, 350); // This allows to wait a little bit
                         x.domain(d3.extent(plot_data, d => d.x))
-                        y.domain([0, d3.max(flat_data, d => +d.y)])
+                        y.domain([0, d3.max(flat_data, d => +d.y)*1.1   ])
                         console.log("here")
                     } else {
                         let invX1 = x.invert(extent[0])
                         let invX2 = x.invert(extent[1])
                         x.domain([invX1, invX2])
                         let select = flat_data.filter(x => x.x >= invX1 && x.x <= invX2)
-                        y.domain([0, d3.max(select, d => +d.y)])
+
+                        // If there is nothing in this region default back to the global max
+                        if (select.length === 0) {
+                            y.domain([0, d3.max(flat_data, d => +d.y) * 1.1]);
+                        }
+                        else {
+                            y.domain([0, d3.max(select, d => +d.y) * 1.1])
+                        }
+
                         line.select(".brush").call(brush.move, null) // This remove the grey brush area as soon as the selection has been done
                     }
 
@@ -251,7 +259,7 @@
                 // If user double click, reinitialize the chart
                 svg.on("dblclick", function () {
                     x.domain(d3.extent(plot_data, function (d) { return d.x; }))
-                    y.domain([0, d3.max(flat_data, d => +d.y)])
+                    y.domain([0, d3.max(flat_data, d => +d.y) * 1.1])
                     xAxis.transition().duration(1000).call(d3.axisBottom(x))
                     yAxis.transition().duration(1000).call(d3.axisLeft(y))
                     line
