@@ -6,31 +6,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Vowpal Wabbit Performance</title>
     <style>
-        #chartjs-tooltip {
-            background-color: white;
-            padding: 20px;
-            z-index:100;
-            filter: drop-shadow(0px 0px 5px);
+        html,
+        body {
+            background-color: #ececec !important;
+
         }
 
         .chartContainer {
             margin-bottom: 50px;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 5px;
+            background-color: white;
         }
 
+        .dot {
+            fill: #2A3B93;
+            stroke: #fff;
+            cursor: pointer;
+        }
+
+        .small_dot {
+            stroke: #606060;
+            fill: #606060;
+        }
+
+        div.tooltip {
+            position: absolute;
+            font: 12px sans-serif;
+            border: 0px;
+            border-radius: 5px;
+            pointer-events: none;
+            background-color: white;
+            padding: 5px;
+            z-index: 100;
+            filter: drop-shadow(0px 0px 5px);
+        }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.0.2/nouislider.min.js"
-        integrity="sha256-VG+4f1Hm2q4e+DTEOaiZKlWjJm5W4yqnXNvKkWBYA20=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"
         integrity="sha256-4iQZ6BVL4qNKlQ27TExEhBN1HFPvAvAMbFavKKosSWQ=" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"
-        integrity="sha256-Uv9BNBucvCPipKQ2NS9wYpJmi8DTOEfTA/nH2aoJALw=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-trendline@0.1.2/src/chartjs-plugin-trendline.js"
-        integrity="sha256-qK/qfey2rWYrbn7LxcnXUal4mpUdQvP14IoS1Iaf/l4=" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
         integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.0.2/nouislider.min.css"
-        integrity="sha256-6pa9Ln4B/FyHlxOYaXuwpET9xH0e21iX0SPLg9P5Ro0=" crossorigin="anonymous" />
+    <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
 
 <body>
@@ -40,21 +58,30 @@
 
     <script>
         window.onload = async function () {
-            let data = await fetch(`./data.json`).then(response => response.json());
-            benchmarks = Object.keys(data[Object.keys(data)[0]].benchmarks);
+            let raw_data = await fetch(`./data.json`).then(response => response.json());
+            benchmarks = Object.keys(raw_data[Object.keys(raw_data)[0]].benchmarks);
             let i = 0;
             for (let benchmark of benchmarks) {
-                let plot_data = Object.keys(data).map((item) => { return { "x": Date.parse(data[item].date), "y": data[item].benchmarks[benchmark].average, commit: data[item].commit, numRuns: data[item].benchmarks[benchmark].runs.length } });
+                let plot_data = Object.keys(raw_data).map((item) => {
+                    const data_item = raw_data[item];
+                    if (data_item.benchmarks === undefined) {
+                        return undefined;
+                    }
+                    return {
+                        "x": Date.parse(data_item.date),
+                        "y": data_item.benchmarks[benchmark].average,
+                        commit: data_item.commit,
+                        numRuns: data_item.benchmarks[benchmark].runs.length,
+                        author: data_item.author,
+                        title: data_item.title,
+                        runs: data_item.benchmarks[benchmark].runs
+                    }
+                }).filter(x => x !== undefined);
                 plot_data.sort((a, b) => a.x - b.x)
                 id = 'myChart' + i++
 
-                let min = Math.min(...plot_data.map(item => item.x))
-                let max = Math.max(...plot_data.map(item => item.x))
-                min = moment(min).startOf("day").valueOf();
-                max = moment(max).endOf("day").valueOf();
-
-                let canv = document.createElement('canvas');
-                canv.id = id;
+                let chartCanvas = document.createElement('div');
+                chartCanvas.id = id;
 
                 let container = document.createElement('div');
                 container.className = "chartContainer"
@@ -63,156 +90,253 @@
                 let text = document.createTextNode(benchmark)
                 header.appendChild(text);
                 container.appendChild(header)
-                container.appendChild(canv);
+                container.appendChild(chartCanvas);
 
                 document.getElementById('chartContainer').appendChild(container);
-                let ctx = document.getElementById(id);
+                let div_width = document.getElementById('chartContainer').offsetWidth - 30;
 
-                let sliderdiv = document.createElement('div');
-                sliderdiv.id = "slider" + id;
-                container.appendChild(sliderdiv);
+                // set the dimensions and margins of the graph
+                let margin = { top: 10, right: 30, bottom: 30, left: 60 },
+                    width = div_width - margin.left - margin.right,
+                    height = 400 - margin.top - margin.bottom;
 
-                let leftdate = document.createElement('div');
-                leftdate.id = "leftslider" + id;
-                container.appendChild(leftdate);
-
-                let rightdate = document.createElement('div');
-                rightdate.id = "rightslider" + id;
-                container.appendChild(rightdate);
-
-                let slider = document.getElementById("slider" + id);
-
-                noUiSlider.create(slider, {
-                    start: [20, 80],
-                    connect: true,
-                    range: {
-                        'min': min,
-                        'max': max
-                    },
-                    start: [min, max],
-                });
-
-                let dateValues = [
-                    leftdate,
-                    rightdate
-                ];
-
-                let myLineChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        datasets: [{
-                            label: benchmark,
-                            fill: false,
-                            data: plot_data,
-                            trendlineLinear: {
-                                style: "rgb(43 ,66 ,255, 0.3)",
-                                lineStyle: "solid",
-                                width: 2
-                            }
-                        }]
-
-                    },
-                    options: {
-                        legend: {
-                            display: false
-                        },
-                        elements: {
-                            line: {
-                                tension: 0
-                            }
-                        },
-                        maintainAspectRatio: false,
-                        scales: {
-                            xAxes: [{
-                                type: 'time',
-                                time: {
-                                    unit: 'month'
-                                }
-                            }],
-                            yAxes: [{
-                                scaleLabel: {
-                                    display: true,
-                                    labelString: 'Seconds'
-                                }
-                            }]
-                        },
-                        tooltips: {
-                            enabled: false,
-                            mode: 'label',
-                            callbacks: {
-                                label: function (tooltipItem, data) {
-                                    let value = data.datasets[tooltipItem.datasetIndex].data[tooltipItem.index];
-                                    return [value.x, value.y, value.commit, value.numRuns];
-                                }
-                            },
-                            custom: function (tooltipModel) {
-                                // Tooltip Element
-                                let tooltipEl = document.getElementById('chartjs-tooltip');
-
-                                // Create element on first render
-                                if (!tooltipEl) {
-                                    tooltipEl = document.createElement('div');
-                                    tooltipEl.id = 'chartjs-tooltip';
-                                    document.body.prepend(tooltipEl);
-                                }
-
-                                // Set Text
-                                if (tooltipModel.body) {
-                                    let item = tooltipModel.body[0]
-                                    let time = item.lines[0];
-                                    let value = item.lines[1];
-                                    let commit = item.lines[2];
-                                    let numRuns = item.lines[3];
-
-                                    tooltipEl.innerHTML = `<a href="https://github.com/VowpalWabbit/vowpal_wabbit/commit/${commit}" target="_blank">${commit}</a>
-                                        <br>${moment(time).format("YY/MM/DD HH:mm:ss")}<br><b>Runs:</b>${numRuns}<br><b>Avg runtime:</b> ${value}<br>`;
-                                    // If you hit rate limiting you can add an access token by setting `window.github_token`. Generate one at: https://github.com/settings/tokens
-                                    let options = undefined;
-                                    if(window.githubToken !== undefined)
-                                    {
-                                        options = {"headers":{'Authorization': `token ${window.githubToken}`}};
-                                    }
-
-                                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${commit}`, options)
-                                        .then(response => response.json())
-                                        .then(function (json) {
-                                            if (json.commit === undefined) {
-                                                console.error("You've hit rate limiting for the Github API. You can set an access token with 'window.github_token', and that token will be used to access the API with much higher limits.")
-                                            }
-                                            else {
-                                                tooltipEl.innerHTML += "<b>Author:</b> " + json.commit.author.name + "<br>";
-                                                tooltipEl.innerHTML += "<b>Title:</b> " + json.commit.message.split('\n')[0];
-                                            }
-                                        });
-                                }
-
-                                // `this` will be the overall tooltip
-                                let position = this._chart.canvas.getBoundingClientRect();
-
-                                // Display, position, and set styles for font
-                                tooltipEl.style.opacity = 1;
-                                tooltipEl.style.position = 'absolute';
-                                tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
-                                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-                                tooltipEl.style.fontFamily = tooltipModel._bodyFontFamily;
-                                tooltipEl.style.fontSize = tooltipModel.bodyFontSize + 'px';
-                                tooltipEl.style.fontStyle = tooltipModel._bodyFontStyle;
-                                tooltipEl.style.padding = tooltipModel.yPadding + 'px ' + tooltipModel.xPadding + 'px';
-                            }
-                        }
+                let flat_data = []
+                for (let data of plot_data) {
+                    for (let run of data.runs) {
+                        flat_data.push({ x: data.x, y: run })
                     }
+                }
+
+                // append the svg object to the body of the page
+                let svg = d3.select("#" + id)
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform",
+                        "translate(" + margin.left + "," + margin.top + ")");
+
+                // Add X axis --> it is a date format
+                let x = d3.scaleTime()
+                    .domain(d3.extent(plot_data, d => d.x))
+                    .range([0, width]);
+                let xAxis = svg.append("g")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(x));
+
+                svg.append("text")
+                    .attr("transform",
+                        "translate(" + (width / 2) + " ," +
+                        (height + margin.top + 20) + ")")
+                    .style("text-anchor", "middle")
+                    .text("Commit Date");
+
+                // Add Y axis
+                let y = d3.scaleLinear()
+                    // *1.1 to create some padding.
+                    .domain([0, d3.max(flat_data, d => +d.y)])
+                    .range([height, 0]);
+                let yAxis = svg.append("g")
+                    .call(d3.axisLeft(y));
+
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 0 - margin.left)
+                    .attr("x", 0 - (height / 2))
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .text("Runtime (Seconds)");
+
+                // Define the div for the tooltip
+                let tt = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+                let idleTimeout = null;
+                function idled() { idleTimeout = null; }
+
+                let clip = svg.append("defs").append("svg:clipPath")
+                    .attr("id", "clip")
+                    .append("svg:rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("x", 0)
+                    .attr("y", 0);
+                let line = svg.append('g')
+                    .attr("clip-path", "url(#clip)")
+
+                function draw_marker(label, id, date) {
+                    line.append("line")
+                        .attr("class", "marker" + id)
+                        .attr("x1", x(date))  //<<== change your code here
+                        .attr("y1", 0)
+                        .attr("x2", x(date))  //<<== and here
+                        .attr("y2", height)
+                        .style("stroke-width", 2)
+                        .style("stroke", "gray")
+                        .style("fill", "none");
+
+                    line.append("text")
+                        .attr("class", "marker_title" + id)
+                        .attr("x", x(date) + 5)
+                        .attr("y", 0 + 5)
+                        .attr("dy", ".35em")
+                        .text(label);
+                }
+
+                function update_marker(label, id, date) {
+                    line
+                        .select('.marker' + id).transition()
+                        .duration(1000)
+                        .attr("x1", x(date))  //<<== change your code here
+                        .attr("x2", x(date))  //<<== and here
+
+                    line
+                        .select('.marker_title' + id).transition()
+                        .duration(1000)
+                        .attr("x", x(date))  //<<== change your code here
+                        .attr("x2", x(date))  //<<== and here
+                }
+
+                let updateChart = () => {
+                    // What are the selected boundaries?
+                    let extent = d3.event.selection
+                    console.log("outer here")
+
+                    // If no selection, back to initial coordinate. Otherwise, update X axis domain
+                    if (!extent) {
+                        if (!idleTimeout) return idleTimeout = setTimeout(idled, 350); // This allows to wait a little bit
+                        x.domain(d3.extent(plot_data, d => d.x))
+                        y.domain([0, d3.max(flat_data, d => +d.y)])
+                        console.log("here")
+                    } else {
+                        let invX1 = x.invert(extent[0])
+                        let invX2 = x.invert(extent[1])
+                        x.domain([invX1, invX2])
+                        let select = flat_data.filter(x => x.x >= invX1 && x.x <= invX2)
+                        y.domain([0, d3.max(select, d => +d.y)])
+                        line.select(".brush").call(brush.move, null) // This remove the grey brush area as soon as the selection has been done
+                    }
+
+                    // Update axis and line position
+                    xAxis.transition().duration(1000).call(d3.axisBottom(x))
+                    yAxis.transition().duration(1000).call(d3.axisLeft(y))
+                    line
+                        .select('.line')
+                        .transition()
+                        .duration(1000)
+                        .attr("d", d3.line()
+                            .x(d => x(d.x))
+                            .y(d => y(d.y))
+                        )
+
+                    line
+                        .selectAll('.dot')
+                        .transition()
+                        .duration(1000)
+                        .attr("cx", function (d) { return x(d.x) })
+                        .attr("cy", function (d) { return y(d.y) })
+
+                    line
+                        .selectAll('.small_dot')
+                        .transition()
+                        .duration(1000)
+                        .attr("cx", function (d) { return x(d.x) })
+                        .attr("cy", function (d) { return y(d.y) })
+
+                    update_marker("8.7.0", "870", Date.parse("2019-06-05"))
+                    update_marker("8.6.1", "861", Date.parse("2018-07-21"))
+                }
+
+                // If user double click, reinitialize the chart
+                svg.on("dblclick", function () {
+                    x.domain(d3.extent(plot_data, function (d) { return d.x; }))
+                    y.domain([0, d3.max(flat_data, d => +d.y)])
+                    xAxis.transition().duration(1000).call(d3.axisBottom(x))
+                    yAxis.transition().duration(1000).call(d3.axisLeft(y))
+                    line
+                        .select('.line')
+                        .transition()
+                        .duration(1000)
+                        .attr("d", d3.line()
+                            .x(function (d) { return x(d.x) })
+                            .y(function (d) { return y(d.y) })
+                        )
                 });
 
-                slider.noUiSlider.on('update', function (values, handle) {
-                    dateValues[handle].innerHTML = moment(+values[handle]).format("YY/MM/DD HH:mm:ss");
-                    const min = +slider.noUiSlider.get()[0];
-                    const max = +slider.noUiSlider.get()[1];
-                    const new_data = plot_data.filter(item => item.x >= min && item.x <= max );
-                    myLineChart.data.datasets.forEach((dataset) => {
-                        dataset.data = new_data;
-                    });
-                    myLineChart.update();
-                });
+                function get_tooltip_content(data) {
+                    return `${data.commit}<br>
+                            ${moment(data.x).format("YY/MM/DD HH:mm:ss")}<br>
+                            <b>Runs:</b>${data.numRuns}<br>
+                            <b>Avg runtime:</b> ${data.y}<br>
+                            <b>Author:</b>${data.author}<br>
+                            <b>Title:</b>${data.title}`;
+                }
+
+                let brush = d3.brushX()                   // Add the brush feature using the d3.brush function
+                    .extent([[0, 0], [width, height]])  // initialise the brush area: start at 0,0 and finishes at width,height: it means I select the whole graph area
+                    .on("end", updateChart);
+
+                line
+                    .append("g")
+                    .attr("class", "brush")
+                    .call(brush);
+
+                draw_marker("8.7.0", "870", Date.parse("2019-06-05"))
+                draw_marker("8.6.1", "861", Date.parse("2018-07-21"))
+
+
+                // Add the line
+                line.append("path")
+                    .datum(plot_data)
+                    .attr("fill", "none")
+                    .attr("class", "line")
+                    .attr("stroke", "#2a3b92")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", d3.line()
+                        .x(d => x(d.x))
+                        .y(d => y(d.y))
+                    )
+
+                line.selectAll(".dot")
+                    .data(flat_data)
+                    .enter().append("circle") // Uses the enter().append() method
+                    .attr("class", "small_dot") // Assign a class for styling
+                    .attr("cx", function (d) { return x(d.x) })
+                    .attr("cy", function (d) { return y(d.y) })
+                    .attr("r", 1)
+                    .attr("pointer-events", "none")
+
+                line.selectAll(".dot")
+                    .data(plot_data)
+                    .enter().append("circle") // Uses the enter().append() method
+                    .attr("class", "dot") // Assign a class for styling
+                    .attr("cx", function (d) { return x(d.x) })
+                    .attr("cy", function (d) { return y(d.y) })
+                    .attr("r", 5)
+                    .attr("pointer-events", "all")
+                    .on("mouseover", function (d) {
+                        // tt.transition()
+                        //     .duration(200)
+                        //     .style("opacity", 1.0)
+                        tt.html(get_tooltip_content(d))
+                            .style("opacity", 1.0)
+                            .style("left", (d3.event.pageX + 10) + "px")
+                            .style("top", (d3.event.pageY - 28) + "px")
+                            .style("display", "block");
+                    })
+                    .on("mouseout", function (d) {
+                        tt
+                            // .duration(200)
+                            .style("opacity", 0.0)
+                            .style("display", "none");
+
+                    })
+                    .on("click", function (d) {
+                        let win = window.open(`https://github.com/VowpalWabbit/vowpal_wabbit/commit/${d.commit}`, '_blank');
+                        win.focus();
+                    })
+
             }
         };
     </script>
