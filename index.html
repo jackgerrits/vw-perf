@@ -194,7 +194,7 @@
                     line
                         .select('.marker_title' + id).transition()
                         .duration(1000)
-                        .attr("x", x(date))
+                        .attr("x", x(date) + 5)
                         .attr("x2", x(date))
                 }
 
@@ -223,7 +223,8 @@
                             y.domain([0, d3.max(select, d => +d.y) * 1.1])
                         }
 
-                        line.select(".brush").call(brush.move, null) // This remove the grey brush area as soon as the selection has been done
+                        // Remove the brush selection area.
+                        line.select(".brush").call(brush.move, null);
                     }
 
                     // Update axis and line position
@@ -324,9 +325,6 @@
                     .attr("r", 5)
                     .attr("pointer-events", "all")
                     .on("mouseover", function (d) {
-                        // tt.transition()
-                        //     .duration(200)
-                        //     .style("opacity", 1.0)
                         tt.html(get_tooltip_content(d))
                             .style("opacity", 1.0)
                             .style("left", (d3.event.pageX + 10) + "px")
