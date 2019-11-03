@@ -24,8 +24,7 @@ def get_commit_info(commit):
   space_index = info[2].rfind(' ')
   info[2] = info[2][:space_index] + info[2][space_index + 1:]
 
-  print(info)
-  return {"name":info[0], "title":info[1],"date":info[2]}
+  return {"author":info[0], "title":info[1],"date":info[2]}
 
 def get_commits(branch, num = 10):
   repo_info = "./repo_info"

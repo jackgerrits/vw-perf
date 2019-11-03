@@ -87,16 +87,16 @@ def run(bins, clone_dir, num_runs, num, skip_existing):
       if ref not in perf_info:
         perf_info[ref] = {}
       else:
-        print("Skipping {} found - skipping")
-        continue
+        if(skip_existing):
+          print("Skipping {} found - skipping")
+          continue
 
       # Save commit info
       perf_info[ref]["commit"] = ref
       info = clone.get_commit_info(ref)
-      perf_info[ref]["name"] = info["name"]
+      perf_info[ref]["author"] = info["author"]
       perf_info[ref]["title"] = info["title"]
       perf_info[ref]["date"] = info["date"]
-
 
       # Run harness
       benchmarks = run_harness(os.path.realpath(vw_bin), num_runs, get_steps)
@@ -125,6 +125,12 @@ def run(bins, clone_dir, num_runs, num, skip_existing):
   with open('data.json', 'w') as f:
     json.dump(perf_info, f)
 
+def boolean_string(s):
+  s = s.lower()
+  if s not in {'false', 'true'}:
+    raise ValueError('Not a valid boolean string')
+  return s == 'true'
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(
     "run.py",
@@ -152,7 +158,7 @@ if __name__ == '__main__':
   run_group.add_argument("--clone_dir", help="Path to search for vw binaries", type=str, default=None)
   run_group.add_argument("--num", help="Number of commits back in history to test", type=int, default=None)
   run_parser.add_argument("--runs", help="How many runs to average over", default=1, type=int)
-  run_parser.add_argument("--skip_existing", help="Skip over commits already done", default=True, type=bool)
+  run_parser.add_argument("--skip_existing", help="Skip over commits already done", default=True, type=boolean_string)
 
   clone_group = clone_parser.add_mutually_exclusive_group(required=True)
   clone_group.add_argument('--commits', type=str, nargs='+',
