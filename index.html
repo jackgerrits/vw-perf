@@ -23,17 +23,17 @@
         .dot {
             fill: #2A3B93;
             stroke: #fff;
+            cursor: pointer;
         }
 
         div.tooltip {
             position: absolute;
-            padding: 2px;
             font: 12px sans-serif;
             border: 0px;
-            border-radius: 8px;
-            pointer-events: all;
+            border-radius: 5px;
+            pointer-events: none;
             background-color: white;
-            padding: 20px;
+            padding: 5px;
             z-index: 100;
             filter: drop-shadow(0px 0px 5px);
         }
@@ -59,13 +59,19 @@
             let i = 0;
             for (let benchmark of benchmarks) {
                 let plot_data = Object.keys(raw_data).map((item) => {
-                    return {
-                        "x": Date.parse(raw_data[item].date),
-                        "y": raw_data[item].benchmarks[benchmark].average,
-                        commit: raw_data[item].commit,
-                        numRuns: raw_data[item].benchmarks[benchmark].runs.length
+                    const data_item = raw_data[item];
+                    if (data_item.benchmarks === undefined) {
+                        return undefined;
                     }
-                });
+                    return {
+                        "x": Date.parse(data_item.date),
+                        "y": data_item.benchmarks[benchmark].average,
+                        commit: data_item.commit,
+                        numRuns: data_item.benchmarks[benchmark].runs.length,
+                        author: data_item.author,
+                        title: data_item.title
+                    }
+                }).filter(x => x !== undefined);
                 plot_data.sort((a, b) => a.x - b.x)
                 id = 'myChart' + i++
 
@@ -232,25 +238,13 @@
                         )
                 });
 
-                function set_tooltip_content(tooltip, data) {
-                    let content = `<a href="https://github.com/VowpalWabbit/vowpal_wabbit/commit/${data.commit}" target="_blank">${data.commit}</a>
-                                        <br>${moment(data.x).format("YY/MM/DD HH:mm:ss")}<br><b>Runs:</b>${data.numRuns}<br><b>Avg runtime:</b> ${data.y}<br>`;
-                    // If you hit rate limiting you can add an access token by setting `window.github_token`. Generate one at: https://github.com/settings/tokens
-                    tooltip.html(content);
-                    let options = undefined;
-                    if (window.githubToken !== undefined) {
-                        options = { "headers": { 'Authorization': `token ${window.githubToken}` } };
-                    }
-                    fetch(`https://api.github.com/repos/VowpalWabbit/vowpal_wabbit/commits/${data.commit}`, options)
-                        .then(response => response.json())
-                        .then(function (json) {
-                            if (json.commit === undefined) {
-                                console.error("You've hit rate limiting for the Github API. You can set an access token with 'window.github_token', and that token will be used to access the API with much higher limits.")
-                            }
-                            else {
-                                tooltip.html(content + "<b>Author:</b> " + json.commit.author.name + "<br>" + "<b>Title:</b> " + json.commit.message.split('\n')[0]);
-                            }
-                        });
+                function get_tooltip_content(data) {
+                    return `${data.commit}<br>
+                            ${moment(data.x).format("YY/MM/DD HH:mm:ss")}<br>
+                            <b>Runs:</b>${data.numRuns}<br>
+                            <b>Avg runtime:</b> ${data.y}<br>
+                            <b>Author:</b>${data.author}<br>
+                            <b>Title:</b>${data.title}`;
                 }
 
                 let brush = d3.brushX()                   // Add the brush feature using the d3.brush function
@@ -284,20 +278,28 @@
                     .attr("cy", function (d) { return y(d.y) })
                     .attr("r", 5)
                     .attr("pointer-events", "all")
-                    .on("mouseover", debounce(function (d) {
-                        tt.transition()
-                            .duration(200)
+                    .on("mouseover", function (d) {
+                        // tt.transition()
+                        //     .duration(200)
+                        //     .style("opacity", 1.0)
+                        tt.html(get_tooltip_content(d))
                             .style("opacity", 1.0)
-                        tt.style("left", (d3.event.pageX) + "px")
-                            .style("top", (d3.event.pageY - 28) + "px");
-                        set_tooltip_content(tt, d);
-                    }, 250))
-                    .on("mouseout", debounce(function (d) {
-                        tt.transition()
-                            .duration(200)
+                            .style("left", (d3.event.pageX + 10) + "px")
+                            .style("top", (d3.event.pageY - 28) + "px")
+                            .style("display", "block");
+                    })
+                    .on("mouseout", function (d) {
+                        tt
+                            // .duration(200)
                             .style("opacity", 0.0)
+                            .style("display", "none");
 
-                    }, 250))
+                    })
+                    .on("click", function (d) {
+                        let win = window.open(`https://github.com/VowpalWabbit/vowpal_wabbit/commit/${d.commit}`, '_blank');
+                        win.focus();
+                    })
+
             }
         };
     </script>
