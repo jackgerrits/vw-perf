@@ -26,6 +26,11 @@
             cursor: pointer;
         }
 
+        .small_dot {
+            stroke: #606060;
+            fill: #606060;
+        }
+
         div.tooltip {
             position: absolute;
             font: 12px sans-serif;
@@ -95,6 +100,13 @@
                     width = div_width - margin.left - margin.right,
                     height = 400 - margin.top - margin.bottom;
 
+                let flat_data = []
+                for (let data of plot_data) {
+                    for (let run of data.runs) {
+                        flat_data.push({ x: data.x, y: run })
+                    }
+                }
+
                 // append the svg object to the body of the page
                 let svg = d3.select("#" + id)
                     .append("svg")
@@ -122,7 +134,7 @@
                 // Add Y axis
                 let y = d3.scaleLinear()
                     // *1.1 to create some padding.
-                    .domain([0, d3.max(plot_data, d => +d.y) * 1.1])
+                    .domain([0, d3.max(flat_data, d => +d.y)])
                     .range([height, 0]);
                 let yAxis = svg.append("g")
                     .call(d3.axisLeft(y));
@@ -195,16 +207,20 @@
                     if (!extent) {
                         if (!idleTimeout) return idleTimeout = setTimeout(idled, 350); // This allows to wait a little bit
                         x.domain(d3.extent(plot_data, d => d.x))
+                        y.domain([0, d3.max(flat_data, d => +d.y)])
                         console.log("here")
                     } else {
                         let invX1 = x.invert(extent[0])
                         let invX2 = x.invert(extent[1])
                         x.domain([invX1, invX2])
+                        let select = flat_data.filter(x => x.x >= invX1 && x.x <= invX2)
+                        y.domain([0, d3.max(select, d => +d.y)])
                         line.select(".brush").call(brush.move, null) // This remove the grey brush area as soon as the selection has been done
                     }
 
                     // Update axis and line position
                     xAxis.transition().duration(1000).call(d3.axisBottom(x))
+                    yAxis.transition().duration(1000).call(d3.axisLeft(y))
                     line
                         .select('.line')
                         .transition()
@@ -221,6 +237,13 @@
                         .attr("cx", function (d) { return x(d.x) })
                         .attr("cy", function (d) { return y(d.y) })
 
+                    line
+                        .selectAll('.small_dot')
+                        .transition()
+                        .duration(1000)
+                        .attr("cx", function (d) { return x(d.x) })
+                        .attr("cy", function (d) { return y(d.y) })
+
                     update_marker("8.7.0", "870", Date.parse("2019-06-05"))
                     update_marker("8.6.1", "861", Date.parse("2018-07-21"))
                 }
@@ -228,7 +251,9 @@
                 // If user double click, reinitialize the chart
                 svg.on("dblclick", function () {
                     x.domain(d3.extent(plot_data, function (d) { return d.x; }))
+                    y.domain([0, d3.max(flat_data, d => +d.y)])
                     xAxis.transition().duration(1000).call(d3.axisBottom(x))
+                    yAxis.transition().duration(1000).call(d3.axisLeft(y))
                     line
                         .select('.line')
                         .transition()
@@ -272,6 +297,15 @@
                         .x(d => x(d.x))
                         .y(d => y(d.y))
                     )
+
+                line.selectAll(".dot")
+                    .data(flat_data)
+                    .enter().append("circle") // Uses the enter().append() method
+                    .attr("class", "small_dot") // Assign a class for styling
+                    .attr("cx", function (d) { return x(d.x) })
+                    .attr("cy", function (d) { return y(d.y) })
+                    .attr("r", 1)
+                    .attr("pointer-events", "none")
 
                 line.selectAll(".dot")
                     .data(plot_data)
