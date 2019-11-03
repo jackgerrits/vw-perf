@@ -92,7 +92,11 @@ def run(bins, clone_dir, num_runs, num, skip_existing):
 
       # Save commit info
       perf_info[ref]["commit"] = ref
-      perf_info[ref]["date"] = clone.get_commit_date(ref)
+      info = clone.get_commit_info(ref)
+      perf_info[ref]["name"] = info["name"]
+      perf_info[ref]["title"] = info["title"]
+      perf_info[ref]["date"] = info["date"]
+
 
       # Run harness
       benchmarks = run_harness(os.path.realpath(vw_bin), num_runs, get_steps)
