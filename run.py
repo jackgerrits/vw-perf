@@ -13,6 +13,7 @@ import prepare
 import benchmark
 import find
 import data
+from pathlib import Path
 
 from typing import Callable, Tuple, List, Union, TextIO, Optional, Any, Dict
 
@@ -31,13 +32,17 @@ if __name__ == '__main__':
         description=textwrap.dedent('''\
       subcommands:
         run\t\tMain perf testing harness
-        prepare\tDownloads and extracts required datasets for perf harness
+        prepare\tDownloads and extracts required datasets for perf harness, and sets up cache
         clone\t\tUtility to clone and build commits in expected directory structure
         find\t\tUsed to find binaries in a directory (not important)
 
       Use `<subcommand> -h` to see usage of a subcommand
       '''))
     subparsers = parser.add_subparsers(dest='command')
+    parser.add_argument('--cache_dir',
+                           type=str,
+                           help='Choose the cache directory, defaults to ~/.vw_benchmark_cache',
+                           default=None)
 
     run_parser = subparsers.add_parser("run")
     clone_parser = subparsers.add_parser("clone")
@@ -46,6 +51,14 @@ if __name__ == '__main__':
     data_parser = subparsers.add_parser("merge")
 
     run_group = run_parser.add_mutually_exclusive_group(required=True)
+    run_group.add_argument('--binary',
+                           type=str,
+                           help='Test a specific binary',
+                           default=None)
+    run_parser.add_argument('--reference_binary',
+                           type=str,
+                           help='Binary to use a reference',
+                           default=None)
     run_group.add_argument('--commits',
                            type=str,
                            nargs='+',
@@ -111,18 +124,24 @@ if __name__ == '__main__':
                              default="merged.json")
 
     args = parser.parse_args()
+    
+    if args.cache_dir is None:
+        args.cache_dir = os.path.join(Path.home(), ".vw_benchmark_cache")
 
     # Check if a command was supplied
     if args.command is None:
         parser.print_help()
         sys.exit(1)
     elif args.command == "clone":
-        clone.run(args.commits, args.num, args.from_ref, args.to_ref)
+        clone.run(args.commits, args.num, args.from_ref, args.to_ref, args.cache_dir)
     elif args.command == "prepare":
-        prepare.run()
+        prepare.run(args.cache_dir)
     elif args.command == "run":
-        benchmark.run(args.commits, args.num, args.from_ref, args.to_ref,
-                      args.runs, args.skip_existing)
+        if args.binary is None:
+            benchmark.run(args.commits, args.num, args.from_ref, args.to_ref,
+                        args.runs, args.skip_existing, args.cache_dir)
+        else:
+            benchmark.run_for_binary(args.binary, args.reference_binary, args.runs, args.cache_dir)
     elif args.command == "find":
         find.run(args.bin_name, args.path)
     elif args.command == "merge":

@@ -7,6 +7,7 @@ import urllib.request
 import sys
 import requests
 import util
+import clone
 
 
 def untar_file(tar_file, final_file):
@@ -59,9 +60,8 @@ def download_and_untar(url, tar_name, final_name):
         untar_file(tar_name, final_name)
 
 
-def run():
-    download_and_untar("http://hunch.net/~vw/rcv1.tar.gz", "./tmp/rcv1.tar.gz",
-                       "./data/rcv1")
-    download_and_untar(
-        "https://cpsdevtesting.blob.core.windows.net/perf-data/cb_data.json.tar.gz?sp=r&st=2019-08-08T17:07:58Z&se=2050-08-09T01:07:58Z&spr=https&sv=2018-03-28&sig=Y9xgnrzemDmLdLfqa9xIPdIBWMESCvMswTNTry%2Bgwj8%3D&sr=b",
-        "./tmp/cb_data.tar.gz", "./data/cb_data")
+def run(cache_dir):
+    download_and_untar("http://hunch.net/~vw/rcv1.tar.gz", os.path.join(cache_dir, "tmp/rcv1.tar.gz"), os.path.join(cache_dir, "data/rcv1"))
+    download_and_untar("https://cpsdevtesting.blob.core.windows.net/perf-data/cb_data.json.tar.gz?sp=r&st=2019-08-08T17:07:58Z&se=2050-08-09T01:07:58Z&spr=https&sv=2018-03-28&sig=Y9xgnrzemDmLdLfqa9xIPdIBWMESCvMswTNTry%2Bgwj8%3D&sr=b",
+        os.path.join(cache_dir, "tmp/cb_data.tar.gz"), os.path.join(cache_dir, "data/cb_data"))
+    clone.update_info_repo(cache_dir)

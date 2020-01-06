@@ -13,17 +13,9 @@ from typing import List
 script_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 
-def get_commit_info(commit):
-    repo_info = "./repo_info"
-    if not os.path.exists(repo_info):
-        print(f"Cloning {commit}...")
-        util.check_result_throw(
-            subprocess.run((
-                f"git clone https://github.com/VowpalWabbit/vowpal_wabbit/ {repo_info}"
-            ).split(),
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT))
-
+def get_commit_info(cache_dir, commit):
+    repo_info = os.path.join(cache_dir, "./repo_info")
+    update_info_repo(cache_dir)
     os.chdir(repo_info)
     result = subprocess.run(
         (f"git log {commit} --date=iso --pretty=%an;%s;%ad -1").split(),
@@ -38,11 +30,11 @@ def get_commit_info(commit):
     space_index = info[2].rfind(' ')
     info[2] = info[2][:space_index] + info[2][space_index + 1:]
 
-    return {"author": info[0], "title": info[1], "date": info[2]}
+    return {"author": info[0], "title": info[1], "date": info[2], "ref": commit}
 
 
-def update_info_repo(branch: str = "master") -> None:
-    repo_info = "./repo_info"
+def update_info_repo(cache_dir, branch: str = "master") -> None:
+    repo_info = os.path.join(cache_dir, "./repo_info")
     if not os.path.exists(repo_info):
         print(f"Cloning info repo...")
         util.check_result_throw(
@@ -64,10 +56,8 @@ def update_info_repo(branch: str = "master") -> None:
         util.check_result_throw(result2)
 
 
-def get_commits_raw(range_str: str) -> List[str]:
-    update_info_repo()
-    repo_info = "./repo_info"
-    os.chdir(repo_info)
+def get_commits_raw(directory, range_str: str) -> List[str]:
+    os.chdir(directory)
     result = subprocess.run(
         (f"git log --pretty=format:\"%h\" --no-patch {range_str}").split(),
         stdout=subprocess.PIPE,
@@ -82,22 +72,29 @@ def get_commits_raw(range_str: str) -> List[str]:
         return []
 
 
-def get_commits_by_range(from_ref, to_ref):
-    return get_commits_raw(f"{from_ref}..{to_ref}")
+def get_commits_by_range(cache_dir, from_ref, to_ref):
+    update_info_repo(cache_dir)
+    repo_info = os.path.join(cache_dir, "./repo_info")
+    return get_commits_raw(repo_info, f"{from_ref}..{to_ref}")
 
 
-def get_commits_by_branch_and_num(branch, num):
-    return get_commits_raw(f"{branch} -{num}")
+def get_commits_by_branch_and_num(cache_dir, branch, num):
+    update_info_repo(cache_dir)
+    repo_info = os.path.join(cache_dir, "./repo_info")
+    return get_commits_raw(repo_info, f"{branch} -{num}")
 
+def get_current_commit(dir):
+    return get_commits_raw(".", f"-n 1")[0]
 
 def clone_and_build(commit,
+                    cache_dir,
                     build_overrides=None,
                     clone_dir: str = "./clones/"):
     commits_repos_dir = os.path.join(clone_dir, commit)
     if os.path.exists(commits_repos_dir):
         print(f"Skipping {commit} - already exists")
     else:
-        update_info_repo()
+        update_info_repo(cache_dir)
         print(f"Cloning {commit}...")
         util.check_result_throw(
             subprocess.run(
@@ -137,27 +134,28 @@ f"&& make -j{multiprocessing.cpu_count()} vw-bin"
 
 BUILD_OVERRIDES = {"860ccc5c": [FORCE_RELEASE_BUILD_COMMANDS]}
 
-
-def resolve_args_to_commit_list(commits, num, from_ref, to_ref):
+def resolve_args_to_commit_list(cache_dir, commits, num, from_ref, to_ref):
     if commits is not None:
         return commits
     elif num is not None:
-        return get_commits_by_branch_and_num("master", num)
+        return get_commits_by_branch_and_num(cache_dir, "master", num)
     elif from_ref is not None and to_ref is not None:
-        return get_commits_by_range(from_ref, to_ref)
+        return get_commits_by_range(cache_dir, from_ref, to_ref)
     else:
         print("Error: either commits, num or from and to must be supplied")
         exit(1)
 
 
-def run(commits, num, from_ref, to_ref):
-    commits_to_process = resolve_args_to_commit_list(commits, num, from_ref,
+def run(commits, num, from_ref, to_ref, cache_dir):
+    commits_to_process = resolve_args_to_commit_list(cache_dir, commits, num, from_ref,
                                                      to_ref)
 
+    CLONE_BASE_DIR = os.path.join(cache_dir, "./clones/")
+
     for commit in commits_to_process:
-        commits_repos_dir = os.path.realpath(os.path.join("./clones/", commit))
+        commits_repos_dir = os.path.realpath(os.path.join(CLONE_BASE_DIR, commit))
         try:
-            clone_and_build(commit, BUILD_OVERRIDES, "./clones/")
+            clone_and_build(commit, cache_dir, BUILD_OVERRIDES, CLONE_BASE_DIR)
         except util.CommandFailed as e:
             print(f"Skipping {commit}, failed with: {e}")
             # print(f"stdout: {e.stdout}")

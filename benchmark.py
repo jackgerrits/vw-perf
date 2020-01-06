@@ -7,6 +7,11 @@ import textwrap
 import util
 import find
 import clone
+import statistics
+
+import sys
+
+from tabulate import tabulate
 
 from typing import Callable, Tuple, List, Union, TextIO, Optional, Any, Dict
 
@@ -22,46 +27,53 @@ def make_command_line_test(
     return command_line_test, command_line
 
 
-def get_steps(vw_bin: str) -> List[Tuple[Callable[[], None], str]]:
-    """Add functions here that will run as part of the harness. They should return the time in
-    seconds it took to run it.
-    """
-    return [
-        make_command_line_test(vw_bin, "--no_stdin"),
-        make_command_line_test(
-            vw_bin, "-d ./data/rcv1/rcv1/rcv1.train.vw.gz -f r_temp"),
-        # This specific test must run after the previous test as it uses the produced model.
-        make_command_line_test(
-            vw_bin, "-d ./data/rcv1/rcv1/rcv1.test.vw.gz -t -i r_temp"),
-        make_command_line_test(
-            vw_bin,
-            "-t --dsjson -d ./data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB "
-            "--epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
-        make_command_line_test(
-            vw_bin,
-            "--dsjson -d ./data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB "
-            "--epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
-    ]
+def gen_steps(cache_dir):
+    def get_steps(vw_bin: str) -> List[Tuple[Callable[[], None], str]]:
+        """Add functions here that will run as part of the harness. They should return the time in
+        seconds it took to run it.
+        """
+        return [
+            # make_command_line_test(vw_bin, "--no_stdin"),
+            # make_command_line_test(
+            #     vw_bin, f"-d {cache_dir}/data/rcv1/rcv1/rcv1.train.vw.gz -f r_temp"),
+            # This specific test must run after the previous test as it uses the produced model.
+            make_command_line_test(
+                vw_bin, f"-d {cache_dir}/data/rcv1/rcv1/rcv1.test.vw.gz -t -i r_temp")
+            # make_command_line_test(
+            #     vw_bin,
+            #     f"-t --dsjson -d {cache_dir}/data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB "
+            #     "--epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
+            # make_command_line_test(
+            #     vw_bin,
+            #     f"--dsjson -d {cache_dir}/data/cb_data/cb_data.dsjson --cb_explore_adf --ignore XA -q UB "
+            #     "--epsilon 0.2 -l 0.5 --cb_type mtr --power_t 0"),
+        ]
+    return get_steps
 
 
 def run_harness(vw_bin: str,
                 num_runs: int,
                 step_generator: Callable[[str], List[Tuple[Callable[[], None],
-                                                           str]]] = get_steps):
+                                                           str]]], quiet=False):
     benchmarks = []
     steps = step_generator(vw_bin)
     for step, name in steps:
-        print(f"\trunning bench: '{name}'")
+        if not quiet:
+            print(f"Running bench: '{name}'", end ="")
 
         runs = []
         # Average over number of runs
-        for _ in range(num_runs):
+        for i in range(num_runs):
+            if not quiet:
+                print(f"\rRunning bench: '{name}', run {i}/{num_runs}",end ="")
             start_time = time.perf_counter()
             # Run the step
             step()
             end_time = time.perf_counter()
             runs.append(end_time - start_time)
         benchmarks.append({"vw_bin": vw_bin, "name": name, "runs": runs})
+        if not quiet:
+            print(f"\rRunning bench: '{name}', run {num_runs}/{num_runs} - Done")
     return benchmarks
 
 
@@ -122,11 +134,11 @@ class PerfInfo:
             json.dump(self.perf_data, f)
 
 
-def run(commits, num, from_ref, to_ref, num_runs, skip_existing):
-    COMMITS_REPOS_DIR = "./clones/"
+def run(commits, num, from_ref, to_ref, num_runs, skip_existing, cache_dir):
+    COMMITS_REPOS_DIR = os.path.join(cache_dir,"./clones/")
     BIN_NAME = "vw"
     commits_to_process = clone.resolve_args_to_commit_list(
-        commits, num, from_ref, to_ref)
+        cache_dir, commits, num, from_ref, to_ref)
 
     commits_and_bins = []
     for commit in commits_to_process:
@@ -153,10 +165,10 @@ def run(commits, num, from_ref, to_ref, num_runs, skip_existing):
 
             # Run harness
             benchmarks = run_harness(os.path.realpath(vw_bin), num_runs,
-                                     get_steps)
+                                     gen_steps(cache_dir))
 
             # Save commit info
-            info = clone.get_commit_info(ref)
+            info = clone.get_commit_info(cache_dir, ref)
             perf_info.set_ref_info(ref, info["author"], info["title"],
                                    info["date"])
 
@@ -172,3 +184,42 @@ def run(commits, num, from_ref, to_ref, num_runs, skip_existing):
             print(f"Skipping {ref}, failed with: {e}")
             continue
     perf_info.save_to_file("data.json")
+
+def run_for_binary(vw_bin_to_test, reference_binary, num_runs, cache_dir):
+    """If binary is None, search for it"""
+
+    # TODO: support if reference_binary is None
+
+    DATA_DIR = os.path.join(cache_dir, "./data/")
+    if not os.path.exists(DATA_DIR):
+        print("Data directory not found - run: `python .\\run.py prepare`")
+        sys.exit(1)
+            
+    ref_info = None
+    try:
+        ref_info = clone.get_commit_info(cache_dir, clone.get_current_commit(cache_dir))
+    except util.CommandFailed:
+        print("Warning: Commit info could not be found. Are you inside the vowpal_wabbit git repo?")
+
+    print(f"Running test benchmarks on '{vw_bin_to_test}'...")
+    test_benchmarks = run_harness(os.path.realpath(vw_bin_to_test), num_runs, gen_steps(cache_dir), quiet=False)
+    print(f"Running reference benchmarks on '{reference_binary}'...")
+    reference_benchmarks = run_harness(os.path.realpath(reference_binary), num_runs, gen_steps(cache_dir), quiet=False)
+    
+    if ref_info:
+        print(ref_info)
+    else:
+        print("No commit info available")
+
+    # TODO support extended statistics
+    table = []
+    for test_bench, reference_bench in zip(test_benchmarks, reference_benchmarks):
+        test_mean = statistics.mean(test_bench["runs"])
+        # test_median = statistics.median(test_bench["runs"])
+        # test_stdev = statistics.pstdev(test_bench["runs"])
+        reference_mean = statistics.mean(reference_bench["runs"])
+        # reference_median = statistics.median(reference_bench["runs"])
+        # reference_stdev = statistics.pstdev(reference_bench["runs"])
+        table.append([test_bench["name"], num_runs, test_mean, reference_mean, test_mean - reference_mean, (test_mean - reference_mean) / reference_mean*100])
+ 
+    print(tabulate(table, headers=["name", "number of runs", "test mean (s)", "reference mean (s)", "difference (s)", "difference (%)"]))
