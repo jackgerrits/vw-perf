@@ -8,6 +8,7 @@ import sys
 import requests
 import util
 import clone
+import shutil
 
 
 def untar_file(tar_file, final_file):
@@ -65,3 +66,10 @@ def run(cache_dir):
     download_and_untar("https://cpsdevtesting.blob.core.windows.net/perf-data/cb_data.json.tar.gz?sp=r&st=2019-08-08T17:07:58Z&se=2050-08-09T01:07:58Z&spr=https&sv=2018-03-28&sig=Y9xgnrzemDmLdLfqa9xIPdIBWMESCvMswTNTry%2Bgwj8%3D&sr=b",
         os.path.join(cache_dir, "tmp/cb_data.tar.gz"), os.path.join(cache_dir, "data/cb_data"))
     clone.update_info_repo(cache_dir)
+
+    # Copy test files into there too
+    test_data_dest_dir = os.path.join(cache_dir, "data/runtests_data/")
+    test_data_src_dir = os.path.join(cache_dir, "repo_info/test/")
+    if not Path(test_data_dest_dir).exists():
+        destination = shutil.copytree(test_data_src_dir, test_data_dest_dir)
+        os.makedirs(os.path.join(cache_dir, test_data_dest_dir, "models"))
