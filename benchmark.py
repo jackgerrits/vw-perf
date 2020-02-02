@@ -60,8 +60,8 @@ def get_steps(cache_dir: str, working_dir: str, vw_bin: str) -> List[BenchmarkDe
     return [
          make_command_line_test(
             vw_bin,
-            f"-d {cache_dir}/data/cb_data/cb_data.dsjson --onethread --cb_explore_adf --noop",
-            benchmark_name = "-d cb_data.dsjson --onethread --cb_explore_adf --noop"
+            f"-d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --onethread --cb_explore_adf --noop",
+            benchmark_name = "-d cb_data.dsjson --dsjson --onethread --cb_explore_adf --noop"
         ),
         make_command_line_test(
             vw_bin,
