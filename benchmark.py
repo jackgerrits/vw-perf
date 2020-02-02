@@ -60,44 +60,44 @@ def get_steps(cache_dir: str, working_dir: str, vw_bin: str) -> List[BenchmarkDe
     return [
          make_command_line_test(
             vw_bin,
-            f"-d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --onethread --cb_explore_adf --noop",
-            benchmark_name = "Parse dsjson input"
+            f"-d {cache_dir}/data/cb_data/cb_data.dsjson --onethread --cb_explore_adf --noop",
+            benchmark_name = "-d cb_data.dsjson --onethread --cb_explore_adf --noop"
         ),
         make_command_line_test(
             vw_bin,
             f"-d {cache_dir}/data/rcv1/rcv1.train.vw --onethread --noop",
-            benchmark_name = "Parse VW text input"
+            benchmark_name = "-d rcv1.train.vw --onethread --noop"
         ),
-        # make_command_line_test_with_cache(
-        #     vw_bin,
-        #     f"{working_dir}/rcv1.train.vw.cache",
-        #     f"--cache_file {working_dir}/rcv1.train.vw.cache -d {cache_dir}/data/rcv1/rcv1.train.vw",
-        #     f"--cache_file {working_dir}/rcv1.train.vw.cache -d {cache_dir}/data/rcv1/rcv1.train.vw --onethread --passes 5 -f {working_dir}/rcv1_model",
-        #     benchmark_name = "RCV1 train from cache, --onethread --passes 5"
-        # ),
-        # # This specific test must run after the previous test as it uses the produced model.
-        # make_command_line_test_with_cache(
-        #     vw_bin,
-        #     f"{working_dir}/rcv1.test.vw.cache",
-        #     f"--cache_file {working_dir}/rcv1.test.vw.cache -d {cache_dir}/data/rcv1/rcv1.test.vw",
-        #     f"--cache_file {working_dir}/rcv1.test.vw.cache -d {cache_dir}/data/rcv1/rcv1.test.vw -t --onethread --passes 5 -i {working_dir}/rcv1_model",
-        #     benchmark_name = "RCV1 test from cache, -t --onethread --passes 5"
-        # ),
-        # make_command_line_test_with_cache(
-        #     vw_bin,
-        #     f"{working_dir}/cb_data.dsjson.cache",
-        #     f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --cb_explore_adf",
-        #     f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -f {working_dir}/cb_model",
-        #     benchmark_name = "CB ADF train from cache, --onethread --cb_explore_adf -q UB --epsilon 0.2 -l 0.5 --power_t 0 --passes 5"
-        # ),
-        # # This specific test must run after the previous test as it uses the produced model.
-        # make_command_line_test_with_cache(
-        #     vw_bin,
-        #     f"{working_dir}/cb_data.dsjson.cache",
-        #     f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --cb_explore_adf",
-        #     f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson -t --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -i {working_dir}/cb_model",
-        #     benchmark_name = "CB ADF test from cache, -t --onethread --cb_explore_adf -q UB --epsilon 0.2 -l 0.5 --power_t 0 --passes 5"
-        # ),
+        make_command_line_test_with_cache(
+            vw_bin,
+            f"{working_dir}/rcv1.train.vw.cache",
+            f"--cache_file {working_dir}/rcv1.train.vw.cache -d {cache_dir}/data/rcv1/rcv1.train.vw",
+            f"--cache_file {working_dir}/rcv1.train.vw.cache -d {cache_dir}/data/rcv1/rcv1.train.vw --onethread --passes 5 -f {working_dir}/rcv1_model",
+            benchmark_name = "--cache_file rcv1.train.vw.cache -d rcv1.train.vw --onethread --passes 5 -f rcv1_model"
+        ),
+        # This specific test must run after the previous test as it uses the produced model.
+        make_command_line_test_with_cache(
+            vw_bin,
+            f"{working_dir}/rcv1.test.vw.cache",
+            f"--cache_file {working_dir}/rcv1.test.vw.cache -d {cache_dir}/data/rcv1/rcv1.test.vw",
+            f"--cache_file {working_dir}/rcv1.test.vw.cache -d {cache_dir}/data/rcv1/rcv1.test.vw -t --onethread --passes 5 -i {working_dir}/rcv1_model",
+            benchmark_name = "--cache_file rcv1.test.vw.cache -d rcv1.test.vw -t --onethread --passes 5 -i rcv1_model"
+        ),
+        make_command_line_test_with_cache(
+            vw_bin,
+            f"{working_dir}/cb_data.dsjson.cache",
+            f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --cb_explore_adf",
+            f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -f {working_dir}/cb_model",
+            benchmark_name = "--cache_file cb_data.dsjson.cache -d cb_data.dsjson --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -f cb_model"
+        ),
+        # This specific test must run after the previous test as it uses the produced model.
+        make_command_line_test_with_cache(
+            vw_bin,
+            f"{working_dir}/cb_data.dsjson.cache",
+            f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --cb_explore_adf",
+            f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson -t --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -i {working_dir}/cb_model",
+            benchmark_name = "-cache_file cb_data.dsjson.cache -d cb_data.dsjson -t --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -i cb_model"
+        ),
     ]
 
 
