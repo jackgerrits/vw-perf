@@ -2,9 +2,9 @@ import os
 import errno
 import subprocess
 import sys
+import hashlib
 
 from typing import Optional
-
 
 class CommandFailed(Exception):
     def __init__(self, args, result_code, stdout, stderr):
@@ -46,3 +46,21 @@ def ensure_dirs_exist(filename):
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
+
+def get_file_hash(filename):
+    # Read the file in 64kb chunks
+    BUF_SIZE = 65536  
+    md5 = hashlib.md5()
+
+    with open(filename, 'rb') as f:
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            md5.update(data)
+    return md5.hexdigest()
+
+# TODO: Use this function to ensure testing is always done on release binary.
+# The symbols in the binary can be inspected to determine this
+def is_release_binary(vw_bin):
+    raise NotImplementedError

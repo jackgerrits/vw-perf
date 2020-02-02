@@ -70,10 +70,12 @@ if __name__ == '__main__':
                            default=None)
     run_group.add_argument('--from',
                            type=str,
+                           dest='from_ref',
                            help='Ref to use a from in range',
                            default=None)
     run_group.add_argument('--to',
                            type=str,
+                           dest='to_ref',
                            help='Ref to use as to in range',
                            default=None)
     run_parser.add_argument("--runs",
@@ -127,6 +129,7 @@ if __name__ == '__main__':
     
     if args.cache_dir is None:
         args.cache_dir = os.path.join(Path.home(), ".vw_benchmark_cache")
+    args.cache_dir = os.path.abspath(os.path.realpath(args.cache_dir))
 
     # Check if a command was supplied
     if args.command is None:

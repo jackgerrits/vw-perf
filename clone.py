@@ -100,7 +100,7 @@ def clone_and_build(commit,
             subprocess.run(
                 (f"git clone ./repo_info {commits_repos_dir}").split(),
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT))
+                stderr=subprocess.STDOUT, cwd=cache_dir))
         os.chdir(commits_repos_dir)
         print(f"Checking out {commit}...")
         util.check_result_throw(
