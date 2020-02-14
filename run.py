@@ -59,6 +59,9 @@ if __name__ == '__main__':
                            type=str,
                            help='Binary to use a reference',
                            default=None)
+    run_parser.add_argument('--interleave',
+                           help='Interleave runs - only currently used when testing against reference binary',
+                           action='store_true')
     run_group.add_argument('--commits',
                            type=str,
                            nargs='+',
@@ -126,7 +129,7 @@ if __name__ == '__main__':
                              default="merged.json")
 
     args = parser.parse_args()
-    
+
     if args.cache_dir is None:
         args.cache_dir = os.path.join(Path.home(), ".vw_benchmark_cache")
     args.cache_dir = os.path.abspath(os.path.realpath(args.cache_dir))
@@ -144,7 +147,7 @@ if __name__ == '__main__':
             benchmark.run(args.commits, args.num, args.from_ref, args.to_ref,
                         args.runs, args.skip_existing, args.cache_dir)
         else:
-            benchmark.run_for_binary(args.binary, args.reference_binary, args.runs, args.cache_dir)
+            benchmark.run_for_binary(args.binary, args.reference_binary, args.interleave, args.runs, args.cache_dir)
     elif args.command == "find":
         find.run(args.bin_name, args.path)
     elif args.command == "merge":

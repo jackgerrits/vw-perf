@@ -8,7 +8,7 @@ import util
 import find
 import clone
 import statistics
-
+from collections import defaultdict
 import sys
 
 from tabulate import tabulate
@@ -96,7 +96,7 @@ def get_steps(cache_dir: str, working_dir: str, vw_bin: str) -> List[BenchmarkDe
             f"{working_dir}/cb_data.dsjson.cache",
             f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson --dsjson --cb_explore_adf",
             f"--cache_file {working_dir}/cb_data.dsjson.cache -d {cache_dir}/data/cb_data/cb_data.dsjson -t --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -i {working_dir}/cb_model",
-            benchmark_name = "-cache_file cb_data.dsjson.cache -d cb_data.dsjson -t --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -i cb_model"
+            benchmark_name = "--cache_file cb_data.dsjson.cache -d cb_data.dsjson -t --onethread --cb_explore_adf --passes 5 -q UB --epsilon 0.2 -l 0.5 --power_t 0 -i cb_model"
         ),
     ]
 
@@ -110,7 +110,7 @@ def run_harness(cache_dir: str,
     working_dir = os.path.join(cache_dir, binary_hash)
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
-    
+
     benchmarks = []
     steps = step_generator(cache_dir, working_dir, vw_bin)
     for step, name in steps:
@@ -122,7 +122,7 @@ def run_harness(cache_dir: str,
         for i in range(num_runs):
             if not quiet:
                 print(f"\rRunning bench: '{name}', run {i}/{num_runs}",end ="")
-            
+
             # Run the step
             duration = -1
             try:
@@ -139,6 +139,53 @@ def run_harness(cache_dir: str,
             print(f"\rRunning bench: '{name}', run {num_runs}/{num_runs} - Done")
     return benchmarks
 
+def run_harness_interleaved(cache_dir: str,
+                vw_bins: List[str],
+                num_runs: int,
+                step_generator: Callable[[str,str,str], List[BenchmarkDefinition]], quiet=False):
+
+    config = {}
+    for vw_bin in vw_bins:
+        config[vw_bin] = {}
+        binary_hash = util.get_file_hash(vw_bin)
+        working_dir =  os.path.join(cache_dir, binary_hash)
+        if not os.path.exists(working_dir):
+            os.mkdir(working_dir)
+
+        config[vw_bin]["working_dir"] = working_dir
+        config[vw_bin]["steps"] = step_generator(cache_dir, working_dir, vw_bin)
+        config[vw_bin]["results"] = defaultdict(list)
+
+    step_names = [name for _,name in config[vw_bins[0]]["steps"]]
+    for step_number, step_name in enumerate(step_names):
+        run_number = 0
+        total_runs = num_runs * len(vw_bins)
+        for _ in range(num_runs):
+            for vw_bin in vw_bins:
+                step, step_name = config[vw_bin]["steps"][step_number]
+                run_number += 1
+                # Run the step
+                duration = -1
+                if not quiet:
+                    print(f"\rRunning interleaved bench: '{step_name}', run {run_number}/{total_runs}",end ="")
+                try:
+                    duration = step()
+                except util.CommandFailed as e:
+                    print()
+                    print(e)
+                    print(e.stderr)
+                    print(e.stdout)
+                    raise
+                config[vw_bin]["results"][step_name].append(duration)
+        if not quiet:
+            print(f"\rRunning interleaved bench: '{step_name}', run {run_number}/{total_runs} - Done")
+
+    benchmarks = []
+    for vw_bin in vw_bins:
+        for step_name, runs in config[vw_bin]["results"].items():
+            benchmarks.append({"vw_bin": vw_bin, "name": step_name, "runs": runs})
+
+    return benchmarks
 
 class PerfInfo:
     def __init__(self, json_data=None):
@@ -247,7 +294,7 @@ def run(commits, num, from_ref, to_ref, num_runs, skip_existing, cache_dir):
             continue
     perf_info.save_to_file("data.json")
 
-def run_for_binary(vw_bin_to_test, reference_binary, num_runs, cache_dir):
+def run_for_binary(vw_bin_to_test, reference_binary, interleave, num_runs, cache_dir):
     """If binary is None, search for it"""
 
     # TODO: support if reference_binary is None
@@ -263,10 +310,15 @@ def run_for_binary(vw_bin_to_test, reference_binary, num_runs, cache_dir):
     except util.CommandFailed:
         print("Warning: Commit info could not be found. Are you inside the vowpal_wabbit git repo?")
 
-    print(f"Running test benchmarks on '{vw_bin_to_test}'...")
-    test_benchmarks = run_harness(cache_dir, os.path.realpath(vw_bin_to_test), num_runs, get_steps, quiet=False)
-    print(f"Running reference benchmarks on '{reference_binary}'...")
-    reference_benchmarks = run_harness(cache_dir, os.path.realpath(reference_binary), num_runs, get_steps, quiet=False)
+    if(interleave):
+        benchmarks = run_harness_interleaved(cache_dir, [os.path.realpath(vw_bin_to_test), os.path.realpath(reference_binary)], num_runs, get_steps, quiet=False)
+        test_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(vw_bin_to_test)]
+        reference_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(reference_binary)]
+    else:
+        print(f"Running test benchmarks on '{vw_bin_to_test}'...")
+        test_benchmarks = run_harness(cache_dir, os.path.realpath(vw_bin_to_test), num_runs, get_steps, quiet=False)
+        print(f"Running reference benchmarks on '{reference_binary}'...")
+        reference_benchmarks = run_harness(cache_dir, os.path.realpath(reference_binary), num_runs, get_steps, quiet=False)
 
     if ref_info:
         print(ref_info)
