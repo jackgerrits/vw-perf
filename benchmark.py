@@ -7,9 +7,10 @@ import textwrap
 import util
 import find
 import clone
-import statistics
 from collections import defaultdict
 import sys
+
+import numpy as np
 
 from tabulate import tabulate
 
@@ -325,21 +326,37 @@ def run_for_binary(vw_bin_to_test, reference_binary, interleave, num_runs, cache
     else:
         print("No commit info available")
 
-    # TODO support extended statistics
+    headers = [
+        "name",
+        "number of runs",
+        "test mean (s)",
+        "test std dev",
+        "reference mean (s)",
+        "reference std dev",
+        "mean difference (s)",
+        "mean difference (%)"
+    ]
+
     table = []
     for test_bench, reference_bench in zip(test_benchmarks, reference_benchmarks):
-        test_mean = statistics.mean(test_bench["runs"])
-        # test_median = statistics.median(test_bench["runs"])
-        # test_stdev = statistics.pstdev(test_bench["runs"])
-        reference_mean = statistics.mean(reference_bench["runs"])
-        # reference_median = statistics.median(reference_bench["runs"])
-        # reference_stdev = statistics.pstdev(reference_bench["runs"])
-        table.append([test_bench["name"], num_runs, test_mean, reference_mean, test_mean - reference_mean, (test_mean - reference_mean) / reference_mean*100])
+        test_mean = np.mean(test_bench["runs"])
+        test_stdev = np.std(test_bench["runs"])
+        reference_mean = np.mean(reference_bench["runs"])
+        reference_stdev = np.std(reference_bench["runs"])
+        table.append([
+            test_bench["name"],
+            num_runs,
+            test_mean,
+            test_stdev,
+            reference_mean,
+            reference_stdev,
+            test_mean - reference_mean,
+            (test_mean - reference_mean) / reference_mean*100])
 
-    formatted_table = tabulate(table, headers=["name", "number of runs", "test mean (s)", "reference mean (s)", "difference (s)", "difference (%)"])
+    formatted_table = tabulate(table, headers=headers)
     print(formatted_table)
 
-    tsv_formatted_table = tabulate(table, headers=["name", "number of runs", "test mean (s)", "reference mean (s)", "difference (s)", "difference (%)"], tablefmt="tsv")
+    tsv_formatted_table = tabulate(table, headers=headers, tablefmt="tsv")
     with open("results.tsv","w") as text_file:
         text_file.write(tsv_formatted_table)
 
