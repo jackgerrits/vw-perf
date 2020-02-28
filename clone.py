@@ -163,7 +163,7 @@ def run(commits, num, from_ref, to_ref, cache_dir):
     for commit in commits_to_process:
         commits_repos_dir = os.path.realpath(os.path.join(cache_dir, "./clones/", commit))
         try:
-            clone_and_build(commit, cache_dir, BUILD_OVERRIDES)
+            clone_and_build(commit, cache_dir, remote="VowpalWabbit", build_overrides=BUILD_OVERRIDES)
         except util.CommandFailed as e:
             print(f"Skipping {commit}, failed with: {e}")
             # print(f"stdout: {e.stdout}")
