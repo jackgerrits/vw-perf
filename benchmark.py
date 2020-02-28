@@ -252,13 +252,14 @@ def run(commits, num, from_ref, to_ref, num_runs, skip_existing, cache_dir):
 
     commits_and_bins = []
     for commit in commits_to_process:
-        commit_path = os.path.realpath(os.path.join(COMMITS_REPOS_DIR, commit))
+        # TODO - remove this hack for the remote
+        commit_path = os.path.realpath(os.path.join(COMMITS_REPOS_DIR, f"VowpalWabbit-{commit}"))
         if not os.path.exists(commit_path):
             print(
                 "{commit} does not exist. Please checkout and build using `python3 run.py clone "
                 f"--commits {commit}`")
         vw_bins = find.find_all(BIN_NAME, commit_path)
-        commits_and_bins.append((commit, vw_bins[0]))
+        commits_and_bins.append((commit, str(vw_bins[0])))
 
     if os.path.exists('data.json'):
         perf_info = PerfInfo.from_file('data.json')
@@ -342,7 +343,7 @@ def run_for_binary(vw_bin_to_test, reference_binary, num_runs, cache_dir):
     benchmarks = run_harness_interleaved(cache_dir, [os.path.realpath(vw_bin_to_test), os.path.realpath(reference_binary)], num_runs, get_steps, quiet=False)
     test_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(vw_bin_to_test)]
     reference_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(reference_binary)]
-    output_results(test_benchmarks, reference_benchmarks, "results.tsv")
+    output_results(num_runs, test_benchmarks, reference_benchmarks, "results.tsv")
 
 def run_for_commit(vw_commit_to_test, reference_commit, num_runs, cache_dir):
     DATA_DIR = os.path.join(cache_dir, "./data/")
