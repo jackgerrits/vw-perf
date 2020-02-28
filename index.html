@@ -59,8 +59,8 @@
     <script>
 
         function getDataPointsForBenchmark(data, benchmark) {
-            return Object.keys(data).map((item) => {
-                const data_item = data[item];
+            return Object.keys(data).map((commit) => {
+                const data_item = data[commit];
                 // If the benchmarks are missing for this item we can"t do anything with it.
                 // return undefined and we will filter out.
                 if (data_item.benchmarks === undefined) {
@@ -69,7 +69,7 @@
                 return {
                     "x": Date.parse(data_item.date),
                     "y": data_item.benchmarks[benchmark].average,
-                    commit: data_item.commit,
+                    commit: commit,
                     numRuns: data_item.benchmarks[benchmark].runs.length,
                     author: data_item.author,
                     title: data_item.title,
