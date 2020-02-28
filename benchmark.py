@@ -294,37 +294,7 @@ def run(commits, num, from_ref, to_ref, num_runs, skip_existing, cache_dir):
             continue
     perf_info.save_to_file("data.json")
 
-def run_for_binary(vw_bin_to_test, reference_binary, interleave, num_runs, cache_dir):
-    """If binary is None, search for it"""
-
-    # TODO: support if reference_binary is None
-
-    DATA_DIR = os.path.join(cache_dir, "./data/")
-    if not os.path.exists(DATA_DIR):
-        print("Data directory not found - run: `python .\\run.py prepare`")
-        sys.exit(1)
-
-    ref_info = None
-    try:
-        ref_info = clone.get_commit_info(cache_dir, clone.get_current_commit(cache_dir))
-    except util.CommandFailed:
-        print("Warning: Commit info could not be found. Are you inside the vowpal_wabbit git repo?")
-
-    if(interleave):
-        benchmarks = run_harness_interleaved(cache_dir, [os.path.realpath(vw_bin_to_test), os.path.realpath(reference_binary)], num_runs, get_steps, quiet=False)
-        test_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(vw_bin_to_test)]
-        reference_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(reference_binary)]
-    else:
-        print(f"Running test benchmarks on '{vw_bin_to_test}'...")
-        test_benchmarks = run_harness(cache_dir, os.path.realpath(vw_bin_to_test), num_runs, get_steps, quiet=False)
-        print(f"Running reference benchmarks on '{reference_binary}'...")
-        reference_benchmarks = run_harness(cache_dir, os.path.realpath(reference_binary), num_runs, get_steps, quiet=False)
-
-    if ref_info:
-        print(ref_info)
-    else:
-        print("No commit info available")
-
+def output_results(num_runs, test_benchmarks, reference_benchmarks, filename):
     headers = [
         "name",
         "number of runs",
@@ -356,5 +326,48 @@ def run_for_binary(vw_bin_to_test, reference_binary, interleave, num_runs, cache
     print(formatted_table)
 
     tsv_formatted_table = tabulate(table, headers=headers, tablefmt="tsv")
-    with open("results.tsv","w") as text_file:
+    with open(filename,"w") as text_file:
         text_file.write(tsv_formatted_table)
+
+def run_for_binary(vw_bin_to_test, reference_binary, num_runs, cache_dir):
+    """If binary is None, search for it"""
+
+    # TODO: support if reference_binary is None
+
+    DATA_DIR = os.path.join(cache_dir, "./data/")
+    if not os.path.exists(DATA_DIR):
+        print("Data directory not found - run: `python .\\run.py prepare`")
+        sys.exit(1)
+
+    benchmarks = run_harness_interleaved(cache_dir, [os.path.realpath(vw_bin_to_test), os.path.realpath(reference_binary)], num_runs, get_steps, quiet=False)
+    test_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(vw_bin_to_test)]
+    reference_benchmarks = [x for x in benchmarks if x["vw_bin"] == os.path.realpath(reference_binary)]
+    output_results(test_benchmarks, reference_benchmarks, "results.tsv")
+
+def run_for_commit(vw_commit_to_test, reference_commit, num_runs, cache_dir):
+    DATA_DIR = os.path.join(cache_dir, "./data/")
+    if not os.path.exists(DATA_DIR):
+        print("Data directory not found - run: `python .\\run.py prepare`")
+        sys.exit(1)
+
+    commit_components = vw_commit_to_test.split("/", maxsplit=1)
+    if len(commit_components) != 2:
+        print("commit must be structured as remote/commit")
+        sys.exit(1)
+
+    ref_commit_components = reference_commit.split("/", maxsplit=1)
+    if len(ref_commit_components) != 2:
+        print("reference commit must be structured as remote/commit")
+        sys.exit(1)
+
+    test_repo_dir = clone.clone_and_build(commit_components[1], cache_dir, remote=commit_components[0])
+    test_bin = str(find.find_all("vw", test_repo_dir)[0])
+    ref_repo_dir = clone.clone_and_build(ref_commit_components[1], cache_dir, remote=ref_commit_components[0])
+    ref_bin = str(find.find_all("vw", ref_repo_dir)[0])
+
+    benchmarks = run_harness_interleaved(cache_dir, [test_bin, ref_bin], num_runs, get_steps, quiet=False)
+    test_benchmarks = [x for x in benchmarks if x["vw_bin"] == test_bin]
+    reference_benchmarks = [x for x in benchmarks if x["vw_bin"] == ref_bin]
+    vw_commit_to_test_without_slash = vw_commit_to_test.replace("/","-")
+    reference_commit_without_slash = reference_commit.replace("/","-")
+    output_results(num_runs, test_benchmarks, reference_benchmarks, f"{vw_commit_to_test_without_slash}_{reference_commit_without_slash}.tsv")

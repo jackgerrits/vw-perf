@@ -32,6 +32,8 @@ if __name__ == '__main__':
         description=textwrap.dedent('''\
       subcommands:
         run\t\tMain perf testing harness
+        compare_bin\t\tCompare VW binaries
+        compare_commit\t\tClone and build commits then compare binaries
         prepare\tDownloads and extracts required datasets for perf harness, and sets up cache
         clone\t\tUtility to clone and build commits in expected directory structure
         find\t\tUsed to find binaries in a directory (not important)
@@ -45,23 +47,14 @@ if __name__ == '__main__':
                            default=None)
 
     run_parser = subparsers.add_parser("run")
+    compare_bin_parser = subparsers.add_parser("compare_bin")
+    compare_commit_parser = subparsers.add_parser("compare_commit")
     clone_parser = subparsers.add_parser("clone")
     prepare_parser = subparsers.add_parser("prepare")
     find_parser = subparsers.add_parser("find")
     data_parser = subparsers.add_parser("merge")
 
     run_group = run_parser.add_mutually_exclusive_group(required=True)
-    run_group.add_argument('--binary',
-                           type=str,
-                           help='Test a specific binary',
-                           default=None)
-    run_parser.add_argument('--reference_binary',
-                           type=str,
-                           help='Binary to use a reference',
-                           default=None)
-    run_parser.add_argument('--interleave',
-                           help='Interleave runs - only currently used when testing against reference binary',
-                           action='store_true')
     run_group.add_argument('--commits',
                            type=str,
                            nargs='+',
@@ -89,6 +82,36 @@ if __name__ == '__main__':
                             help="Skip over commits already done",
                             default=True,
                             type=boolean_string)
+
+    compare_bin_parser.add_argument('--binary',
+                           type=str,
+                           help='Test a specific binary',
+                           default=None,
+                           required=True)
+    compare_bin_parser.add_argument('--reference_binary',
+                           type=str,
+                           help='Binary to use a reference',
+                           default=None,
+                           required=True)
+    compare_bin_parser.add_argument("--runs",
+                            help="How many runs to average over",
+                            default=1,
+                            type=int)
+
+    compare_commit_parser.add_argument('--commit',
+                           type=str,
+                           help='Test a specific commit in the form remote/commit',
+                           default=None,
+                           required=True)
+    compare_commit_parser.add_argument('--reference_commit',
+                           type=str,
+                           help='Specify reference commit in the form remote/commit',
+                           default=None,
+                           required=True)
+    compare_commit_parser.add_argument("--runs",
+                            help="How many runs to average over",
+                            default=1,
+                            type=int)
 
     clone_group = clone_parser.add_mutually_exclusive_group(required=True)
     clone_group.add_argument('--commits',
@@ -143,12 +166,13 @@ if __name__ == '__main__':
     elif args.command == "prepare":
         prepare.run(args.cache_dir)
     elif args.command == "run":
-        if args.binary is None:
-            benchmark.run(args.commits, args.num, args.from_ref, args.to_ref,
+        benchmark.run(args.commits, args.num, args.from_ref, args.to_ref,
                         args.runs, args.skip_existing, args.cache_dir)
-        else:
-            benchmark.run_for_binary(args.binary, args.reference_binary, args.interleave, args.runs, args.cache_dir)
+    elif args.command == "compare_bin":
+        benchmark.run_for_binary(args.binary, args.reference_binary, args.runs, args.cache_dir)
+    elif args.command == "compare_commit":
+        benchmark.run_for_commit(args.commit, args.reference_commit, args.runs, args.cache_dir)
     elif args.command == "find":
-        find.run(args.bin_name, args.path)
+        find.run(args.name, args.path)
     elif args.command == "merge":
         data.merge(args.files, args.merged_name)

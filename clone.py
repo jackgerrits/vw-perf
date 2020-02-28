@@ -8,6 +8,7 @@ import shutil
 import multiprocessing
 
 import sys
+from pathlib import Path
 
 from typing import List
 script_path = os.path.abspath(os.path.dirname(sys.argv[0]))
@@ -59,7 +60,7 @@ def update_info_repo(cache_dir, branch: str = "master") -> None:
 def get_commits_raw(directory, range_str: str) -> List[str]:
     os.chdir(directory)
     result = subprocess.run(
-        (f"git log --pretty=format:\"%h\" --no-patch {range_str}").split(),
+        (f"git log --pretty=format:\"%H\" --no-patch {range_str}").split(),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
     os.chdir(script_path)
@@ -88,44 +89,53 @@ def get_current_commit(dir):
 
 def clone_and_build(commit,
                     cache_dir,
-                    build_overrides=None,
-                    clone_dir: str = "./clones/"):
-    commits_repos_dir = os.path.join(clone_dir, commit)
+                    remote="VowpalWabbit",
+                    build_overrides=None):
+    commits_repos_dir = Path(os.path.join(cache_dir, "clones", f"{remote}-{commit}")).resolve()
+    print(commits_repos_dir)
     if os.path.exists(commits_repos_dir):
-        print(f"Skipping {commit} - already exists")
+        print(f"Skipping {remote}-{commit} - already exists")
     else:
         update_info_repo(cache_dir)
-        print(f"Cloning {commit}...")
-        util.check_result_throw(
-            subprocess.run(
-                (f"git clone ./repo_info {commits_repos_dir}").split(),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, cwd=cache_dir))
+        print(f"Cloning {remote}-{commit}...")
+        if(remote == "VowpalWabbit"):
+            util.check_result_throw(
+                subprocess.run(
+                    (f"git clone ./repo_info {commits_repos_dir}").split(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, cwd=cache_dir))
+        else:
+            util.check_result_throw(
+                subprocess.run(
+                    (f"git clone https://github.com/{remote}/vowpal_wabbit/ {commits_repos_dir}").split(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, cwd=cache_dir))
         os.chdir(commits_repos_dir)
-        print(f"Checking out {commit}...")
+        print(f"Checking out {remote}-{commit}...")
         util.check_result_throw(
             subprocess.run((f"git checkout {commit}").split(),
                            stdout=subprocess.PIPE,
                            stderr=subprocess.STDOUT))
-        print(f"Building {commit}...")
+        print(f"Building {remote}-{commit}...")
         if build_overrides is not None and commit in build_overrides:
             commands = build_overrides[commit]
-            print(f"Running custom build for {commit}...")
+            print(f"Running custom build for {remote}-{commit}...")
             for command in commands:
-                print(f"Running build step '{command}' for {commit}...")
+                print(f"Running build step '{command}' for {remote}-{commit}...")
                 util.check_result_throw(
                     subprocess.run(command,
                                    shell=True,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT))
         else:
-            print(f"Running default build for {commit}...")
+            print(f"Running default build for {remote}-{commit}...")
             util.check_result_throw(
                 subprocess.run(["make"],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT))
-        print(f"Finished with {commit}")
+        print(f"Finished with {remote}-{commit}")
         os.chdir(script_path)
+    return commits_repos_dir
 
 
 # Not platform independent. Assumes bash or bashlike as shell.
@@ -150,12 +160,10 @@ def run(commits, num, from_ref, to_ref, cache_dir):
     commits_to_process = resolve_args_to_commit_list(cache_dir, commits, num, from_ref,
                                                      to_ref)
 
-    CLONE_BASE_DIR = os.path.join(cache_dir, "./clones/")
-
     for commit in commits_to_process:
-        commits_repos_dir = os.path.realpath(os.path.join(CLONE_BASE_DIR, commit))
+        commits_repos_dir = os.path.realpath(os.path.join(cache_dir, "./clones/", commit))
         try:
-            clone_and_build(commit, cache_dir, BUILD_OVERRIDES, CLONE_BASE_DIR)
+            clone_and_build(commit, cache_dir, BUILD_OVERRIDES)
         except util.CommandFailed as e:
             print(f"Skipping {commit}, failed with: {e}")
             # print(f"stdout: {e.stdout}")

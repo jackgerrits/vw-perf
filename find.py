@@ -6,7 +6,7 @@ def find_all(name, path):
     result = []
     for root, dirs, files in os.walk(path):
         if name in files:
-            result.append(os.path.join(root, name))
+            result.append(Path(os.path.join(root, name)).resolve())
     return result
 
 
@@ -17,5 +17,5 @@ def extract_ref(path):
 
 
 def run(bin_name, path):
-    for file in find_all(args.bin_name, args.path):
+    for file in find_all(bin_name, path):
         print(file)
