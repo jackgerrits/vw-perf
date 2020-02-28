@@ -9,6 +9,7 @@ import find
 import clone
 from collections import defaultdict
 import sys
+import pathlib
 
 import numpy as np
 
@@ -106,11 +107,10 @@ def run_harness(cache_dir: str,
                 vw_bin: str,
                 num_runs: int,
                 step_generator: Callable[[str,str,str], List[BenchmarkDefinition]], quiet=False):
-    binary_hash = util.get_file_hash(vw_bin)
 
-    working_dir = os.path.join(cache_dir, binary_hash)
-    if not os.path.exists(working_dir):
-        os.mkdir(working_dir)
+    binary_hash = util.get_file_hash(vw_bin)
+    working_dir =  pathlib.Path(os.path.join(cache_dir, "working_dir", binary_hash))
+    working_dir.mkdir(parents=True, exist_ok=True)
 
     benchmarks = []
     steps = step_generator(cache_dir, working_dir, vw_bin)
@@ -149,9 +149,8 @@ def run_harness_interleaved(cache_dir: str,
     for vw_bin in vw_bins:
         config[vw_bin] = {}
         binary_hash = util.get_file_hash(vw_bin)
-        working_dir =  os.path.join(cache_dir, binary_hash)
-        if not os.path.exists(working_dir):
-            os.mkdir(working_dir)
+        working_dir =  pathlib.Path(os.path.join(cache_dir, "working_dir", binary_hash))
+        working_dir.mkdir(parents=True, exist_ok=True)
 
         config[vw_bin]["working_dir"] = working_dir
         config[vw_bin]["steps"] = step_generator(cache_dir, working_dir, vw_bin)
@@ -359,4 +358,3 @@ def run_for_binary(vw_bin_to_test, reference_binary, interleave, num_runs, cache
     tsv_formatted_table = tabulate(table, headers=headers, tablefmt="tsv")
     with open("results.tsv","w") as text_file:
         text_file.write(tsv_formatted_table)
-
