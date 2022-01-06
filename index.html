@@ -213,13 +213,13 @@
                 .call(d3.axisLeft(y));
 
             // Add Y axis label
-            svg.append("text")
-                .attr("transform", "rotate(-90)")
-                .attr("y", 0 - margin.left)
-                .attr("x", 0 - (height / 2))
-                .attr("dy", "1em")
-                .style("text-anchor", "middle")
-                .text("Runtime (Seconds)");
+            // svg.append("text")
+            //     .attr("transform", "rotate(-90)")
+            //     .attr("y", 0 - margin.left)
+            //     .attr("x", 0 - (height / 2))
+            //     .attr("dy", "1em")
+            //     .style("text-anchor", "middle")
+            //     .text("");
 
             // Define the div for the tooltip
             const commitTooltip = d3.select("body").append("div")
